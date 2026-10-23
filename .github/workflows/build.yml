@@ -37,7 +37,8 @@ jobs:
         run: |
           if [[ $GITHUB_REF == refs/tags/v* ]]; then v=${GITHUB_REF#refs/tags/v}; else v=0.0.0-dev; fi
           echo "name=$v" >> "$GITHUB_OUTPUT"
-          echo "code=$GITHUB_RUN_NUMBER" >> "$GITHUB_OUTPUT"
+          # +100 keeps official builds above any local test build already installed.
+          echo "code=$((GITHUB_RUN_NUMBER + 100))" >> "$GITHUB_OUTPUT"
 
       - name: Release key
         env:
