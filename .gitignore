@@ -1,0 +1,15 @@
+# Your own household: names, location, Home Assistant address and webhook ids.
+config/*.json
+!config/calm.example.json
+
+# Signing key: never publish.
+*.keystore
+*.jks
+
+launcher/build/
+backup/
+vendor/
+
+# Release signing key + password (back these up; GitHub gets them as secrets).
+secrets/
+

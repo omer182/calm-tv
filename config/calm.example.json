@@ -1,0 +1,32 @@
+{
+  "names": "Alex & Sam",
+
+  "location": { "name": "Lisbon", "lat": 38.7223, "lon": -9.1393 },
+
+  "alarm": {
+    "spotifyPlaylist": "37i9dQZF1DX0UrRvztWcAU",
+    "volume": 20
+  },
+
+  "homeAssistant": {
+    "url": "http://192.168.1.10:8123",
+    "room": "Living room",
+    "alarmWebhook": "calm_alarm_CHANGE_ME_random_string",
+    "homeWebhook": "calm_home_CHANGE_ME_random_string"
+  },
+
+  "sleepKey": 194,
+
+  "buttons": { "193": "com.netflix.ninja" },
+
+  "dock": [
+    "com.netflix.ninja",
+    "com.google.android.youtube.tv",
+    "com.plexapp.android",
+    "com.spotify.tv.android",
+    "@home",
+    "@alarm",
+    "@all",
+    "@settings"
+  ]
+}

@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Home Assistant on a home network usually runs on plain http://<ip>:8123, and its address
+     comes from calm.json, so plain HTTP is allowed. Everything else Calm talks to is HTTPS. -->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true" />
+</network-security-config>

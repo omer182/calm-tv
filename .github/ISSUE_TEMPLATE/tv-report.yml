@@ -1,0 +1,47 @@
+name: Report your TV
+description: Tell us how Calm TV works on your TV model, so it can join the supported list.
+title: "[TV] <brand> <model>"
+labels: [tv-report]
+body:
+  - type: input
+    id: model
+    attributes:
+      label: Brand and model
+      description: "adb shell getprop ro.product.manufacturer; adb shell getprop ro.product.model"
+      placeholder: Xiaomi MiTV-MSSP3
+    validations: {required: true}
+  - type: input
+    id: android
+    attributes:
+      label: Android version
+      description: "adb shell getprop ro.build.version.release"
+      placeholder: "9"
+    validations: {required: true}
+  - type: checkboxes
+    id: works
+    attributes:
+      label: What works
+      options:
+        - label: Home screen replaces the stock one (Home button opens Calm TV)
+        - label: Welcome greeting when the TV turns on
+        - label: Weather
+        - label: Screensaver
+        - label: Sleep timer button
+        - label: Alarm rings while the TV is on
+        - label: Wake-on-LAN wakes the TV from standby (alarm with Home Assistant)
+        - label: Home card (Home Assistant)
+  - type: input
+    id: keys
+    attributes:
+      label: Remote button key codes
+      description: "adb logcat | grep interceptKeyTq, then press the button"
+      placeholder: "sleep: 194, Netflix: 193, Assistant: swallowed by the system"
+  - type: textarea
+    id: debloat
+    attributes:
+      label: Packages you disabled (optional)
+      description: Package names that were safe to disable on this model, one per line.
+  - type: textarea
+    id: notes
+    attributes:
+      label: Anything that didn't work

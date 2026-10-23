@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="sleep_service_description">Calm sleep timer: the Assistant button adds 30 minutes, holding it turns the timer off.</string>
+</resources>

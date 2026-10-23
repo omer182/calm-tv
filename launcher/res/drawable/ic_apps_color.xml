@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 3x3 grid of colourful app squares for the All Apps card. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="192dp"
+    android:height="192dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path android:fillColor="#FFFF453A" android:pathData="M3.8,2.5h2.4a1.3,1.3 0 0 1 1.3,1.3v2.4a1.3,1.3 0 0 1 -1.3,1.3h-2.4a1.3,1.3 0 0 1 -1.3,-1.3v-2.4a1.3,1.3 0 0 1 1.3,-1.3z" />
+    <path android:fillColor="#FFFF9F0A" android:pathData="M10.8,2.5h2.4a1.3,1.3 0 0 1 1.3,1.3v2.4a1.3,1.3 0 0 1 -1.3,1.3h-2.4a1.3,1.3 0 0 1 -1.3,-1.3v-2.4a1.3,1.3 0 0 1 1.3,-1.3z" />
+    <path android:fillColor="#FFFFD60A" android:pathData="M17.8,2.5h2.4a1.3,1.3 0 0 1 1.3,1.3v2.4a1.3,1.3 0 0 1 -1.3,1.3h-2.4a1.3,1.3 0 0 1 -1.3,-1.3v-2.4a1.3,1.3 0 0 1 1.3,-1.3z" />
+    <path android:fillColor="#FF30D158" android:pathData="M3.8,9.5h2.4a1.3,1.3 0 0 1 1.3,1.3v2.4a1.3,1.3 0 0 1 -1.3,1.3h-2.4a1.3,1.3 0 0 1 -1.3,-1.3v-2.4a1.3,1.3 0 0 1 1.3,-1.3z" />
+    <path android:fillColor="#FF64D2FF" android:pathData="M10.8,9.5h2.4a1.3,1.3 0 0 1 1.3,1.3v2.4a1.3,1.3 0 0 1 -1.3,1.3h-2.4a1.3,1.3 0 0 1 -1.3,-1.3v-2.4a1.3,1.3 0 0 1 1.3,-1.3z" />
+    <path android:fillColor="#FF0A84FF" android:pathData="M17.8,9.5h2.4a1.3,1.3 0 0 1 1.3,1.3v2.4a1.3,1.3 0 0 1 -1.3,1.3h-2.4a1.3,1.3 0 0 1 -1.3,-1.3v-2.4a1.3,1.3 0 0 1 1.3,-1.3z" />
+    <path android:fillColor="#FF5E5CE6" android:pathData="M3.8,16.5h2.4a1.3,1.3 0 0 1 1.3,1.3v2.4a1.3,1.3 0 0 1 -1.3,1.3h-2.4a1.3,1.3 0 0 1 -1.3,-1.3v-2.4a1.3,1.3 0 0 1 1.3,-1.3z" />
+    <path android:fillColor="#FFBF5AF2" android:pathData="M10.8,16.5h2.4a1.3,1.3 0 0 1 1.3,1.3v2.4a1.3,1.3 0 0 1 -1.3,1.3h-2.4a1.3,1.3 0 0 1 -1.3,-1.3v-2.4a1.3,1.3 0 0 1 1.3,-1.3z" />
+    <path android:fillColor="#FFFF375F" android:pathData="M17.8,16.5h2.4a1.3,1.3 0 0 1 1.3,1.3v2.4a1.3,1.3 0 0 1 -1.3,1.3h-2.4a1.3,1.3 0 0 1 -1.3,-1.3v-2.4a1.3,1.3 0 0 1 1.3,-1.3z" />
+</vector>

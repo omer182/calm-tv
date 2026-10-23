@@ -1,0 +1,185 @@
+# Calm TV for Home Assistant: wakes the TV for alarms and powers the Home card.
+#
+# Install as a package:
+#   1. Copy this file to <config>/packages/calm_tv.yaml
+#   2. In configuration.yaml:   homeassistant:
+#                                 packages: !include_dir_named packages
+#   3. Replace every CHANGE_ME below, then restart Home Assistant.
+#
+# The TV talks to Home Assistant through two webhooks (no token needed; local network only).
+# Use the same random ids in the TV's calm.json ("alarmWebhook", "homeWebhook").
+#
+# CHANGE_ME values:
+#   calm_alarm_CHANGE_ME     random webhook id for the alarm (e.g. calm_alarm_k3J9xQ2mWv)
+#   calm_home_CHANGE_ME      random webhook id for the Home card
+#   aa:bb:cc:dd:ee:ff        the TV's Ethernet MAC (setup prints it with -WakeOnLan)
+#   192.168.1.50             the TV's IP address (give it a fixed lease in your router)
+#   climate.CHANGE_ME        your AC / thermostat entity (or delete the AC parts)
+#   switch.CHANGE_ME         devices to show as tiles on the Home card
+
+wake_on_lan:
+
+input_datetime:
+  calm_alarm_time:
+    name: TV alarm time
+    has_date: false
+    has_time: true
+
+input_boolean:
+  calm_alarm_enabled:
+    name: TV alarm on
+
+input_select:
+  calm_alarm_repeat:
+    name: TV alarm repeat
+    options: [once, daily, sun_thu]
+
+timer:
+  calm_ac_off:
+    name: AC off timer
+
+rest_command:
+  # Sends the AC and device state to the TV (the TV listens on port 8765).
+  calm_tv_push:
+    url: http://192.168.1.50:8765/state
+    method: post
+    content_type: application/json
+    timeout: 3
+    payload: >-
+      {% set ids = ['switch.CHANGE_ME'] %}
+      {% set ac = 'climate.CHANGE_ME' %}
+      {"ac": {"state": {{ states(ac) | to_json }},
+              "temp": {{ state_attr(ac, 'temperature') | to_json }},
+              "fan": {{ state_attr(ac, 'fan_mode') | to_json }},
+              "off_at": {{ (state_attr('timer.calm_ac_off', 'finishes_at') if is_state('timer.calm_ac_off', 'active') else '') | string | to_json }}},
+       "devices": [{% for e in ids %}{"id": {{ e | to_json }}, "name": {{ state_attr(e, 'friendly_name') | to_json }}, "on": {{ is_state(e, 'on') | to_json }}}{{ ',' if not loop.last }}{% endfor %}]}
+
+automation:
+  # ---------------------------------------------------------------- alarm
+  - id: calm_alarm_sync
+    alias: Calm TV - alarm settings from the TV
+    mode: queued
+    triggers:
+      - trigger: webhook
+        webhook_id: calm_alarm_CHANGE_ME
+        allowed_methods: [POST]
+        local_only: true
+    actions:
+      - action: input_datetime.set_datetime
+        target: {entity_id: input_datetime.calm_alarm_time}
+        data: {time: "{{ trigger.json.time }}"}
+      - action: input_select.select_option
+        target: {entity_id: input_select.calm_alarm_repeat}
+        data: {option: "{{ trigger.json.repeat }}"}
+      - action: "input_boolean.turn_{{ 'on' if trigger.json.enabled else 'off' }}"
+        target: {entity_id: input_boolean.calm_alarm_enabled}
+
+  # The TV can't wake itself from standby, so Home Assistant wakes it at alarm time.
+  - id: calm_alarm_wake
+    alias: Calm TV - wake the TV for the alarm
+    mode: single
+    triggers:
+      - trigger: time
+        at: input_datetime.calm_alarm_time
+    conditions:
+      - condition: state
+        entity_id: input_boolean.calm_alarm_enabled
+        state: "on"
+      - condition: template
+        value_template: >
+          {{ states('input_select.calm_alarm_repeat') != 'sun_thu'
+             or now().weekday() in [6, 0, 1, 2, 3] }}
+    actions:
+      - repeat:
+          count: 3
+          sequence:
+            - action: wake_on_lan.send_magic_packet
+              data:
+                mac: "aa:bb:cc:dd:ee:ff"
+            - delay: 5
+      - if:
+          - condition: state
+            entity_id: input_select.calm_alarm_repeat
+            state: once
+        then:
+          - action: input_boolean.turn_off
+            target: {entity_id: input_boolean.calm_alarm_enabled}
+
+  # ---------------------------------------------------------------- Home card
+  - id: calm_home_command
+    alias: Calm TV - command from the Home card
+    mode: queued
+    triggers:
+      - trigger: webhook
+        webhook_id: calm_home_CHANGE_ME
+        allowed_methods: [POST]
+        local_only: true
+    actions:
+      - choose:
+          - conditions: "{{ trigger.json.cmd == 'ac_mode' }}"
+            sequence:
+              - action: climate.set_hvac_mode
+                target: {entity_id: climate.CHANGE_ME}
+                data: {hvac_mode: "{{ trigger.json.mode }}"}
+          - conditions: "{{ trigger.json.cmd == 'ac_temp' }}"
+            sequence:
+              - action: climate.set_temperature
+                target: {entity_id: climate.CHANGE_ME}
+                data: {temperature: "{{ trigger.json.temp | int }}"}
+          - conditions: "{{ trigger.json.cmd == 'ac_fan' }}"
+            sequence:
+              - action: climate.set_fan_mode
+                target: {entity_id: climate.CHANGE_ME}
+                data: {fan_mode: "{{ trigger.json.fan }}"}
+          - conditions: "{{ trigger.json.cmd == 'ac_off_in' and (trigger.json.minutes | int) > 0 }}"
+            sequence:
+              - action: timer.start
+                target: {entity_id: timer.calm_ac_off}
+                data: {duration: "{{ (trigger.json.minutes | int) * 60 }}"}
+          - conditions: "{{ trigger.json.cmd == 'ac_off_in' }}"
+            sequence:
+              - action: timer.cancel
+                target: {entity_id: timer.calm_ac_off}
+          # Only the devices listed here can be toggled from the TV.
+          - conditions: "{{ trigger.json.cmd == 'toggle' and trigger.json.entity_id in ['switch.CHANGE_ME'] }}"
+            sequence:
+              - action: homeassistant.toggle
+                target: {entity_id: "{{ trigger.json.entity_id }}"}
+      - action: rest_command.calm_tv_push
+        continue_on_error: true
+
+  - id: calm_home_push
+    alias: Calm TV - send state to the TV
+    mode: restart
+    triggers:
+      - trigger: state
+        entity_id: [climate.CHANGE_ME, switch.CHANGE_ME, timer.calm_ac_off]
+    actions:
+      - action: rest_command.calm_tv_push
+        continue_on_error: true
+
+  - id: calm_ac_off_timer
+    alias: Calm TV - AC off timer finished
+    mode: single
+    triggers:
+      - trigger: event
+        event_type: timer.finished
+        event_data: {entity_id: timer.calm_ac_off}
+    actions:
+      - action: climate.turn_off
+        target: {entity_id: climate.CHANGE_ME}
+
+  - id: calm_ac_off_cancel
+    alias: Calm TV - cancel the off timer when the AC turns off
+    mode: single
+    triggers:
+      - trigger: state
+        entity_id: climate.CHANGE_ME
+        to: "off"
+    conditions:
+      - condition: state
+        entity_id: timer.calm_ac_off
+        state: active
+    actions:
+      - action: timer.cancel
+        target: {entity_id: timer.calm_ac_off}

@@ -1,0 +1,35 @@
+# Xiaomi Mi TV (MiTV-MSSP3, Android TV 9): packages that only do ads, tracking, updates or
+# unused extras. Tested: the TV, live TV, HDMI, casting and the remote all keep working.
+# debloat/debloat.ps1 disables them; restore.ps1 -Packages <this file> turns them back on.
+
+# Telemetry / tracking
+com.miui.tv.analytics
+com.xiaomi.statistic
+com.google.android.feedback
+com.google.android.tv.bugreportsender
+
+# Ads, recommendations, partner push
+com.mitv.tvhome.atv
+com.google.android.tvrecommendations
+com.google.android.leanbacklauncher.recommendations
+com.xiaomi.android.tvsetup.partnercustomizer
+android.autoinstalls.config.xiaomi.amelie
+com.xm.webcontent
+
+# System updates
+com.xiaomi.mitv.updateservice
+
+# Kept on purpose: com.mstar.netflixobserver handles the remote's Netflix button.
+
+# Unused apps
+com.amazon.amazonvideo.livingroom
+com.google.android.play.games
+com.google.android.music
+com.xiaomi.mimusic2
+com.mitv.videoplayer
+com.mitv.gallery
+com.xiaomi.mitv.mediaexplorer
+
+# Voice search
+com.google.android.katniss
+com.google.android.speech.pumpkin

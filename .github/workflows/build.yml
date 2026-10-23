@@ -1,0 +1,66 @@
+# Builds calm-tv.apk on every push and pull request. Pushing a tag like v0.2.0 also publishes
+# a GitHub release with the signed APK, which setup.ps1 / setup.sh download by default.
+#
+# Release signing uses repository secrets (Settings > Secrets and variables > Actions):
+#   CALM_KEYSTORE_BASE64     base64 of the release keystore
+#   CALM_KEYSTORE_PASSWORD   its password
+# Without them (e.g. pull requests from forks) the APK is signed with a throwaway debug key.
+name: build
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+
+permissions:
+  contents: write
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Android SDK packages
+        run: |
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "build-tools;34.0.0" "platforms;android-34" > /dev/null
+
+      - name: Version
+        id: version
+        run: |
+          if [[ $GITHUB_REF == refs/tags/v* ]]; then v=${GITHUB_REF#refs/tags/v}; else v=0.0.0-dev; fi
+          echo "name=$v" >> "$GITHUB_OUTPUT"
+          echo "code=$GITHUB_RUN_NUMBER" >> "$GITHUB_OUTPUT"
+
+      - name: Release key
+        env:
+          KEYSTORE_BASE64: ${{ secrets.CALM_KEYSTORE_BASE64 }}
+        run: |
+          if [[ -n $KEYSTORE_BASE64 ]]; then
+            echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/release.keystore"
+            echo "CALM_KEYSTORE=$RUNNER_TEMP/release.keystore" >> "$GITHUB_ENV"
+          fi
+
+      - name: Build
+        shell: pwsh
+        env:
+          CALM_KEYSTORE_PASSWORD: ${{ secrets.CALM_KEYSTORE_PASSWORD }}
+        run: ./launcher/build.ps1 -Version '${{ steps.version.outputs.name }}' -VersionCode ${{ steps.version.outputs.code }}
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: calm-tv-apk
+          path: launcher/build/calm-tv.apk
+
+      - name: Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" launcher/build/calm-tv.apk --title "Calm TV $GITHUB_REF_NAME" --generate-notes
