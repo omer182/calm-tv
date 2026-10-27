@@ -1,6 +1,7 @@
 package io.github.omer182.calmtv;
 
 import android.app.Activity;
+import android.graphics.Bitmap;
 import android.graphics.Color;
 import android.graphics.drawable.GradientDrawable;
 import android.os.Bundle;
@@ -8,7 +9,10 @@ import android.os.Handler;
 import android.view.Gravity;
 import android.view.KeyEvent;
 import android.view.View;
+import android.util.Log;
 import android.view.ViewGroup;
+import android.webkit.ConsoleMessage;
+import android.webkit.WebChromeClient;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.widget.FrameLayout;
@@ -28,6 +32,7 @@ import java.util.List;
  * it full screen with sound, Back goes back. Streams only run while this screen is open.
  */
 public class CamerasActivity extends Activity {
+    private static final String TAG = "CalmCameras";
     private static final int COLUMNS = 2;
     // Nobody watching: close, so the TV doesn't keep the server transcoding all night.
     private static final long IDLE_CLOSE_MS = 15 * 60_000;
@@ -159,8 +164,8 @@ public class CamerasActivity extends Activity {
             cell.addView(tile, new LinearLayout.LayoutParams(-1, 0, 1f));
             TextView label = Ui.text(this, 18, 500);
             label.setText(cam[0]);
-            label.setPadding(dp(4), dp(12), 0, 0);
-            cell.addView(label);
+            label.setPadding(0, dp(12), 0, 0);
+            cell.addView(label, new LinearLayout.LayoutParams(-2, -2));
             LinearLayout.LayoutParams clp = new LinearLayout.LayoutParams(0, -1, 1f);
             clp.setMargins(dp(14), dp(10), dp(14), dp(10));
             row.addView(cell, clp);
@@ -198,6 +203,19 @@ public class CamerasActivity extends Activity {
         settings.setJavaScriptEnabled(true);
         // Full screen turns the sound on without a tap, which a TV can't give.
         settings.setMediaPlaybackRequiresUserGesture(false);
+        web.setWebChromeClient(new WebChromeClient() {
+            // Instead of the grey play button WebView shows before the first frame.
+            @Override
+            public Bitmap getDefaultVideoPoster() {
+                return Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888);
+            }
+
+            @Override
+            public boolean onConsoleMessage(ConsoleMessage message) {
+                Log.i(TAG, message.message());
+                return true;
+            }
+        });
         String html = template.replace("$GO2RTC", JSONObject.quote(go2rtc)).replace("$SRC", JSONObject.quote(src));
         // go2rtc's origin, so its WebSocket accepts the page.
         web.loadDataWithBaseURL(go2rtc + "/", html, "text/html", "utf-8", null);

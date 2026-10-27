@@ -29,13 +29,17 @@
   }
 
   video.addEventListener('playing', function () { statusText.style.display = 'none'; });
+  video.addEventListener('error', function () {
+    console.log(SRC + ': video error ' + video.error.code + ' ' + video.error.message);
+  });
 
   function connect() {
     var ms = new MediaSource();
     var ws = new WebSocket(wsUrl);
     ws.binaryType = 'arraybuffer';
     var sb = null, pending = [];
-    var retry = function (text) {
+    var retry = function (text, why) {
+      console.log(SRC + ': ' + text + ' (' + why + ')');
       statusText.textContent = text;
       statusText.style.display = 'flex';
       try { ws.close(); } catch (e) {}
@@ -60,7 +64,7 @@
           sb.mode = 'segments';
           sb.addEventListener('updateend', onUpdated);
         } else if (msg.type === 'error') {
-          retry('Camera offline');
+          retry('Camera offline', msg.value);
         }
         return;
       }
@@ -68,10 +72,14 @@
       if (sb.updating || pending.length) pending.push(ev.data);
       else append(ev.data);
     };
-    ws.onclose = function () { retry('Reconnecting…'); };
+    ws.onclose = function (ev) { retry('Reconnecting…', 'socket closed ' + ev.code); };
 
     function append(data) {
-      try { sb.appendBuffer(data); } catch (e) { retry('Reconnecting…'); }
+      try {
+        sb.appendBuffer(data);
+      } catch (e) {
+        retry('Reconnecting…', e.name + ' ' + e.message + (video.error ? ', video error ' + video.error.code + ' ' + video.error.message : ''));
+      }
     }
 
     function onUpdated() {
