@@ -1,0 +1,95 @@
+<!doctype html>
+<!-- One live camera for CamerasActivity: go2rtc's MSE stream (fMP4 over a WebSocket) in a <video>.
+     CamerasActivity fills in GO2RTC and SRC and loads it with go2rtc as the base URL, because
+     go2rtc only accepts WebSockets from its own origin. Stays ~0.3 s behind live, reconnects itself. -->
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }
+  video { width: 100%; height: 100%; object-fit: contain; background: #000; }
+  #status { position: absolute; top: 0; right: 0; bottom: 0; left: 0; display: flex; align-items: center; justify-content: center;
+            color: rgba(255, 255, 255, 0.6); font: 400 18px sans-serif; }
+</style>
+</head>
+<body>
+<video id="video" autoplay muted playsinline></video>
+<div id="status">Connecting…</div>
+<script>
+  var video = document.getElementById('video');
+  var statusText = document.getElementById('status');
+  var GO2RTC = $GO2RTC, SRC = $SRC;
+  var wsUrl = GO2RTC.replace(/^http/, 'ws') + '/api/ws?src=' + encodeURIComponent(SRC);
+  // What this WebView can play; go2rtc picks from these.
+  var CODECS = ['avc1.640029', 'avc1.64002A', 'avc1.640033', 'hvc1.1.6.L153.B0', 'mp4a.40.2', 'mp4a.40.5', 'flac', 'opus'];
+
+  // Called from CamerasActivity: sound only for the camera shown full screen.
+  function setMuted(muted) {
+    video.muted = muted;
+  }
+
+  video.addEventListener('playing', function () { statusText.style.display = 'none'; });
+
+  function connect() {
+    var ms = new MediaSource();
+    var ws = new WebSocket(wsUrl);
+    ws.binaryType = 'arraybuffer';
+    var sb = null, pending = [];
+    var retry = function (text) {
+      statusText.textContent = text;
+      statusText.style.display = 'flex';
+      try { ws.close(); } catch (e) {}
+      ws.onclose = null;
+      setTimeout(connect, 5000);
+    };
+    video.src = URL.createObjectURL(ms);
+
+    ws.onopen = function () {
+      ms.addEventListener('sourceopen', function () {
+        var supported = CODECS.filter(function (c) {
+          return MediaSource.isTypeSupported('video/mp4; codecs="' + c + '"');
+        });
+        ws.send(JSON.stringify({type: 'mse', value: supported.join(',')}));
+      }, {once: true});
+    };
+    ws.onmessage = function (ev) {
+      if (typeof ev.data === 'string') {
+        var msg = JSON.parse(ev.data);
+        if (msg.type === 'mse') {
+          sb = ms.addSourceBuffer(msg.value);
+          sb.mode = 'segments';
+          sb.addEventListener('updateend', onUpdated);
+        } else if (msg.type === 'error') {
+          retry('Camera offline');
+        }
+        return;
+      }
+      if (!sb) return;
+      if (sb.updating || pending.length) pending.push(ev.data);
+      else append(ev.data);
+    };
+    ws.onclose = function () { retry('Reconnecting…'); };
+
+    function append(data) {
+      try { sb.appendBuffer(data); } catch (e) { retry('Reconnecting…'); }
+    }
+
+    function onUpdated() {
+      if (pending.length) {
+        append(pending.shift());
+        return;
+      }
+      if (!sb.buffered.length) return;
+      var end = sb.buffered.end(sb.buffered.length - 1);
+      var start = sb.buffered.start(0);
+      // Keep only the last few seconds, and stay close to live.
+      if (end - start > 10) sb.remove(start, end - 5);
+      if (end - video.currentTime > 1.5) video.currentTime = end - 0.3;
+      if (video.paused) video.play().catch(function () {});
+    }
+  }
+
+  connect();
+</script>
+</body>
+</html>

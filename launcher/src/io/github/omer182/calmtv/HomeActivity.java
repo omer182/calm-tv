@@ -426,8 +426,9 @@ public class HomeActivity extends Activity {
     // ---------------------------------------------------------------- dock
 
     // Built-in cards live in the same order list as apps, under these keys.
-    private static final String CARD_HOME = "@home", CARD_ALARM = "@alarm", CARD_ALL = "@all", CARD_SETTINGS = "@settings";
-    private static final String[] CARDS = {CARD_HOME, CARD_ALARM, CARD_ALL, CARD_SETTINGS};
+    private static final String CARD_HOME = "@home", CARD_CAMERAS = "@cameras", CARD_ALARM = "@alarm", CARD_ALL = "@all",
+            CARD_SETTINGS = "@settings";
+    private static final String[] CARDS = {CARD_HOME, CARD_CAMERAS, CARD_ALARM, CARD_ALL, CARD_SETTINGS};
 
     private void rebuildDock() {
         View focused = getCurrentFocus();
@@ -436,8 +437,9 @@ public class HomeActivity extends Activity {
         Map<String, App> installed = installedApps();
         for (final String key : dockOrder()) {
             View tile;
-            if (CARD_HOME.equals(key) && !Config.get(this).hasHomeAssistant()) continue;
+            if (hiddenCard(key)) continue;
             if (CARD_HOME.equals(key)) tile = homeTile();
+            else if (CARD_CAMERAS.equals(key)) tile = camerasTile();
             else if (CARD_ALARM.equals(key)) tile = alarmTile();
             else if (CARD_ALL.equals(key)) {
                 // Dark glass with a grid of colourful app squares, like an app folder.
@@ -562,7 +564,7 @@ public class HomeActivity extends Activity {
             // First run after this change: the old app list, then the built-in cards.
             String apps = prefs.getString("packages", null);
             // First run: the dock from calm.json. It may place the built-in cards too
-            // ("@home", "@alarm", "@all", "@settings"); any it leaves out go at the end.
+            // ("@home", "@cameras", "@alarm", "@all", "@settings"); any it leaves out go at the end.
             if (apps == null) list.addAll(Config.get(this).dock);
             else if (!apps.isEmpty()) Collections.addAll(list, apps.split(","));
         }
@@ -701,10 +703,17 @@ public class HomeActivity extends Activity {
         Map<String, App> installed = installedApps();
         List<String> list = new ArrayList<>();
         for (String key : dockOrder()) {
-            if (CARD_HOME.equals(key) && !Config.get(this).hasHomeAssistant()) continue;
+            if (hiddenCard(key)) continue;
             if (key.startsWith("@") || installed.containsKey(key)) list.add(key);
         }
         return list;
+    }
+
+    /** Built-in cards whose feature isn't set up in calm.json. */
+    private boolean hiddenCard(String key) {
+        Config config = Config.get(this);
+        return CARD_HOME.equals(key) && !config.hasHomeAssistant()
+                || CARD_CAMERAS.equals(key) && !config.hasCameras();
     }
 
     // ---------------------------------------------------------------- all apps
@@ -880,6 +889,17 @@ public class HomeActivity extends Activity {
         }
         View tile = appleTile(CARD_HOME, warm, R.drawable.ic_home, "Home", subtitle);
         tile.setOnClickListener(v -> launch(new Intent(this, HomeControlActivity.class)));
+        return tile;
+    }
+
+    /** Night-blue tile with a camera icon; opens the live view of every camera. */
+    private View camerasTile() {
+        GradientDrawable night = new GradientDrawable(GradientDrawable.Orientation.TL_BR,
+                new int[]{0xFF0F2C4A, 0xFF1E5A86, 0xFF3C8DBC});
+        int count = Config.get(this).cameras.size();
+        View tile = appleTile(CARD_CAMERAS, night, R.drawable.ic_camera, "Cameras",
+                count == 1 ? "Live" : count + " live");
+        tile.setOnClickListener(v -> launch(new Intent(this, CamerasActivity.class)));
         return tile;
     }
 

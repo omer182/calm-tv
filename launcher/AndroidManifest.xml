@@ -38,6 +38,10 @@
             android:excludeFromRecents="true"
             android:screenOrientation="landscape" />
         <activity
+            android:name=".CamerasActivity"
+            android:excludeFromRecents="true"
+            android:screenOrientation="landscape" />
+        <activity
             android:name=".AlarmActivity"
             android:launchMode="singleTask"
             android:excludeFromRecents="true"
