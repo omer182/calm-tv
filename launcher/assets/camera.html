@@ -69,22 +69,34 @@
         return;
       }
       if (!sb) return;
-      if (sb.updating || pending.length) pending.push(ev.data);
-      else append(ev.data);
+      pending.push(ev.data);
+      feed();
     };
     ws.onclose = function (ev) { retry('Reconnecting…', 'socket closed ' + ev.code); };
 
-    function append(data) {
+    // One append at a time: the next chunk waits for 'updateend'. A big camera (1080p) sends
+    // chunks faster than the SourceBuffer finishes some appends.
+    function feed() {
+      if (sb.updating || !pending.length) return;
+      if (video.error) {
+        retry('Reconnecting…', 'video error ' + video.error.code + ' ' + video.error.message);
+        return;
+      }
+      var data = pending.shift();
       try {
         sb.appendBuffer(data);
       } catch (e) {
-        retry('Reconnecting…', e.name + ' ' + e.message + (video.error ? ', video error ' + video.error.code + ' ' + video.error.message : ''));
+        if (e.name !== 'InvalidStateError' || ms.readyState !== 'open') {
+          retry('Reconnecting…', e.name + ' ' + e.message);
+          return;
+        }
+        pending.unshift(data); // still busy after all: try again on the next 'updateend'
       }
     }
 
     function onUpdated() {
       if (pending.length) {
-        append(pending.shift());
+        feed();
         return;
       }
       if (!sb.buffered.length) return;
