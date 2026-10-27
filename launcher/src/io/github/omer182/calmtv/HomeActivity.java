@@ -892,13 +892,13 @@ public class HomeActivity extends Activity {
         return tile;
     }
 
-    /** Night-blue tile with a camera icon; opens the live view of every camera. */
+    /** Night-blue tile with a camera icon; opens the cameras screen. */
     private View camerasTile() {
         GradientDrawable night = new GradientDrawable(GradientDrawable.Orientation.TL_BR,
                 new int[]{0xFF0F2C4A, 0xFF1E5A86, 0xFF3C8DBC});
         int count = Config.get(this).cameras.size();
         View tile = appleTile(CARD_CAMERAS, night, R.drawable.ic_camera, "Cameras",
-                count == 1 ? "Live" : count + " live");
+                count == 1 ? "1 camera" : count + " cameras");
         tile.setOnClickListener(v -> launch(new Intent(this, CamerasActivity.class)));
         return tile;
     }

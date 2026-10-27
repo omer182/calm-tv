@@ -28,8 +28,10 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Live view of the go2rtc cameras in calm.json, two per row. Left/Right picks a camera, OK shows
- * it full screen with sound, Back goes back. Streams only run while this screen is open.
+ * The go2rtc cameras in calm.json, two per row. The selected one plays live, the others show a
+ * still every few seconds: TVs often decode only one video at a time (this Xiaomi does).
+ * Left/Right picks a camera, OK shows it full screen with sound, Back goes back. Streams only run
+ * while this screen is open.
  */
 public class CamerasActivity extends Activity {
     private static final String TAG = "CalmCameras";
@@ -159,7 +161,7 @@ public class CamerasActivity extends Activity {
             tile.setClipToOutline(true);
             tile.setBackground(Ui.rounded(this, Color.BLACK, 14));
             tile.setForeground(ring());
-            WebView player = player(template, config.go2rtcUrl, cam[1]);
+            WebView player = player(template, config.go2rtcUrl, cam[1], i == 0);
             tile.addView(player, new FrameLayout.LayoutParams(-1, -1));
             cell.addView(tile, new LinearLayout.LayoutParams(-1, 0, 1f));
             TextView label = Ui.text(this, 18, 500);
@@ -195,7 +197,7 @@ public class CamerasActivity extends Activity {
         }
     }
 
-    private WebView player(String template, String go2rtc, String src) {
+    private WebView player(String template, String go2rtc, String src, boolean live) {
         WebView web = new WebView(this);
         web.setFocusable(false);
         web.setBackgroundColor(Color.BLACK);
@@ -216,7 +218,8 @@ public class CamerasActivity extends Activity {
                 return true;
             }
         });
-        String html = template.replace("$GO2RTC", JSONObject.quote(go2rtc)).replace("$SRC", JSONObject.quote(src));
+        String html = template.replace("$GO2RTC", JSONObject.quote(go2rtc)).replace("$SRC", JSONObject.quote(src))
+                .replace("$LIVE", String.valueOf(live));
         // go2rtc's origin, so its WebSocket accepts the page.
         web.loadDataWithBaseURL(go2rtc + "/", html, "text/html", "utf-8", null);
         return web;
@@ -233,6 +236,12 @@ public class CamerasActivity extends Activity {
 
     private void select(int index) {
         if (index < 0 || index >= tiles.size()) return;
+        if (index != selected) {
+            // Stop the old stream first so the decoder is free, then start the new one.
+            players.get(selected).evaluateJavascript("goStill()", null);
+            final WebView next = players.get(index);
+            handler.postDelayed(() -> next.evaluateJavascript("goLive()", null), 300);
+        }
         selected = index;
         for (int i = 0; i < tiles.size(); i++) {
             boolean on = i == selected;

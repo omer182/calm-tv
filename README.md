@@ -92,7 +92,7 @@ Every field is optional; leave one out and that feature simply switches off.
 | `alarm.spotifyPlaylist` | `"37i9dQZF1DX0UrRvztWcAU"` | Playlist id for the random-song alarm (from the playlist's share link). Without it: a random morning song on YouTube. |
 | `alarm.volume` | `20` | Volume the alarm sets before playing. |
 | `homeAssistant` | `{"url", "room", "alarmWebhook", "homeWebhook"}` | Turns on the Home card and alarm wake-up. See below. |
-| `cameras` | `{"go2rtc": "http://192.168.1.10:1984", "streams": [{"name": "Kids room", "src": "kids_cam"}]}` | Turns on the Cameras card: live view of [go2rtc](https://github.com/AlexxIT/go2rtc) streams (`src` is the stream name in go2rtc.yaml). Side by side; OK for full screen, with sound. |
+| `cameras` | `{"go2rtc": "http://192.168.1.10:1984", "streams": [{"name": "Kids room", "src": "kids_cam"}]}` | Turns on the Cameras card: live view of [go2rtc](https://github.com/AlexxIT/go2rtc) streams (`src` is the stream name in go2rtc.yaml). Two per row: the selected one is live, the others refresh a still every 10 s (TVs often decode one video at a time). OK for full screen, with sound. |
 | `sleepKey` | `194` | Key code of the remote button for the sleep timer. |
 | `buttons` | `{"193": "com.netflix.ninja"}` | Remote buttons that open an app. |
 | `dock` | `["com.netflix.ninja", "@home", "@cameras", "@alarm", "@all", "@settings"]` | First-run card order. `@…` are the built-in cards. |
