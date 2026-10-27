@@ -157,11 +157,30 @@
       if (!sb.buffered.length) return;
       var end = sb.buffered.end(sb.buffered.length - 1);
       var start = sb.buffered.start(0);
-      // Keep only the last few seconds, and stay close to live.
+      // Keep only the last few seconds. Stay close to live by playing a little faster: jumping
+      // means decoding again from the last keyframe, and doing that on every chunk freezes the picture.
       if (end - start > 10) sb.remove(start, end - 5);
-      if (end - video.currentTime > 1.5) video.currentTime = end - 0.3;
+      var gap = end - video.currentTime;
+      if (gap > 6) video.currentTime = end - 0.5;
+      video.playbackRate = gap > 1 ? 1.25 : gap > 0.5 ? 1.1 : 1;
       if (video.paused) video.play().catch(function () {});
     }
+
+    // Watchdog: data arriving but the picture not moving means the decoder gave up quietly.
+    var lastTime = -1;
+    var watchdog = setInterval(function () {
+      if (id !== session) {
+        clearInterval(watchdog);
+        return;
+      }
+      if (sb && video.currentTime === lastTime) {
+        var q = video.getVideoPlaybackQuality ? video.getVideoPlaybackQuality() : {};
+        retry('Reconnecting…', 'stalled at ' + lastTime.toFixed(1) + ', buffered to '
+            + (sb.buffered.length ? sb.buffered.end(sb.buffered.length - 1).toFixed(1) : '-')
+            + ', ready ' + video.readyState + ', frames ' + q.totalVideoFrames + '/' + q.droppedVideoFrames + ' dropped');
+      }
+      lastTime = video.currentTime;
+    }, 6000);
   }
 
   if (LIVE) goLive();
