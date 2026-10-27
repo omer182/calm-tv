@@ -15,6 +15,14 @@
     "homeWebhook": "calm_home_CHANGE_ME_random_string"
   },
 
+  "cameras": {
+    "go2rtc": "http://192.168.1.10:1984",
+    "streams": [
+      { "name": "Kids room", "src": "kids_cam" },
+      { "name": "Front door", "src": "door_cam" }
+    ]
+  },
+
   "sleepKey": 194,
 
   "buttons": { "193": "com.netflix.ninja" },
@@ -25,6 +33,7 @@
     "com.plexapp.android",
     "com.spotify.tv.android",
     "@home",
+    "@cameras",
     "@alarm",
     "@all",
     "@settings"

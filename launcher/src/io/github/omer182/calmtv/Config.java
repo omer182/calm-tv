@@ -50,6 +50,11 @@ final class Config {
     /** Remote buttons that open an app, keycode -> package (e.g. 193 -> Netflix on Xiaomi remotes). */
     final Map<Integer, String> buttons = new HashMap<>();
 
+    /** go2rtc base URL (e.g. http://192.168.1.10:1984) for the Cameras card; empty hides it. */
+    String go2rtcUrl = "";
+    /** Cameras in screen order: name shown on screen, go2rtc stream name. */
+    final List<String[]> cameras = new ArrayList<>();
+
     /** Package names for the first-run dock, before the user rearranges it. */
     final List<String> dock = new ArrayList<>();
 
@@ -116,6 +121,15 @@ final class Config {
                     }
                 }
             }
+            JSONObject cams = j.optJSONObject("cameras");
+            if (cams != null) {
+                c.go2rtcUrl = cams.optString("go2rtc", "").replaceAll("/+$", "");
+                JSONArray streams = cams.optJSONArray("streams");
+                for (int i = 0; streams != null && i < streams.length(); i++) {
+                    JSONObject cam = streams.getJSONObject(i);
+                    c.cameras.add(new String[]{cam.optString("name", "Camera"), cam.getString("src")});
+                }
+            }
             JSONArray dock = j.optJSONArray("dock");
             if (dock != null) {
                 c.dock.clear();
@@ -134,6 +148,10 @@ final class Config {
 
     boolean hasHomeAssistant() {
         return !haUrl.isEmpty();
+    }
+
+    boolean hasCameras() {
+        return !go2rtcUrl.isEmpty() && !cameras.isEmpty();
     }
 
     String alarmWebhookUrl() {

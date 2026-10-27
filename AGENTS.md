@@ -21,10 +21,13 @@ anything you can't undo, and verify each step with a screenshot
 4. Alarm: do they want one? Spotify playlist link, or the built-in tunes?
 5. Do they run Home Assistant? If yes: its URL, which AC/thermostat and switches to show, and
    whether the TV is on a network cable (needed for Wake-on-LAN alarms).
-6. Spare remote buttons: ask them to press each one while you watch
+6. Cameras: do they run go2rtc (standalone or Frigate's, reachable on port 1984)? Which
+   streams, in what order, and the names to show. Check each plays at
+   `http://<go2rtc>:1984/stream.html?src=<stream>&mode=mse` before adding it (README "Cameras").
+7. Spare remote buttons: ask them to press each one while you watch
    `adb logcat | grep interceptKeyTq`. Use one the TV ignores for `sleepKey`; map app buttons
    (e.g. Netflix) under `buttons` if they stopped working.
-7. Debloat: only if a list for their exact model exists in `debloat/`. Otherwise skip it, or
+8. Debloat: only if a list for their exact model exists in `debloat/`. Otherwise skip it, or
    build a list with them one package at a time.
 
 ## 2. Config
@@ -47,6 +50,8 @@ before restarting.
   (warn them first: it plays sound).
 - Sleep timer: `adb shell am broadcast -a io.github.omer182.calmtv.SLEEP_TEST` shows
   "Sleep in 30 min"; `--ei seconds -1` cancels. Real remote presses must be tested by the person.
+- Cameras (if set up): open the card with them watching; the selected camera should move, and
+  OK should show it full screen with sound.
 - Button service running: `adb shell dumpsys accessibility` lists `Calm sleep timer`. If it
   doesn't after an update, a TV restart fixes it (ask first).
 
