@@ -2,7 +2,7 @@
 
 <p align="center">
   <b>A calm, ad-free home screen for Android TV</b><br>
-  with a personal welcome, wake-up alarms, a sleep timer on your remote, and Home Assistant built in.
+  with a personal welcome, wake-up alarms, a sleep timer on your remote, your cameras, and Home Assistant built in.
 </p>
 
 <p align="center">
@@ -30,11 +30,15 @@ bedroom TV should have had all along. No root, no account, and everything can be
 </tr>
 <tr>
 <td><img src="docs/screenshots/04-home-control.jpg" alt="Home card"><br><b>Home card.</b> Control the AC (mode, temperature, fan, "off in 30 min / 1 h / 2 h") and switches from Home Assistant, Apple Home style.</td>
-<td><img src="docs/screenshots/07-sleep-timer.jpg" alt="Sleep timer"><br><b>Sleep timer on a remote button.</b> Each press adds 30 min (up to 2 h), hold 3 s to cancel. Works in any app; the last minute counts down so you can stay.</td>
+<td><img src="docs/screenshots/10-cameras.jpg" alt="Cameras"><br><b>Cameras (optional).</b> Your cameras from <a href="#cameras-optional">go2rtc</a>: the selected one live, the others as stills. OK for full screen with sound.</td>
 </tr>
 <tr>
+<td><img src="docs/screenshots/07-sleep-timer.jpg" alt="Sleep timer"><br><b>Sleep timer on a remote button.</b> Each press adds 30 min (up to 2 h), hold 3 s to cancel. Works in any app; the last minute counts down so you can stay.</td>
 <td><img src="docs/screenshots/09-screensaver.jpg" alt="Screensaver"><br><b>A matching screensaver</b> with slowly drifting photos, the time and the weather, instead of Google's.</td>
+</tr>
+<tr>
 <td><img src="docs/screenshots/06-all-apps.jpg" alt="All apps"><br><b>All your apps</b> in one grid, and remote buttons (like Netflix) mapped to any app you like.</td>
+<td></td>
 </tr>
 </table>
 
@@ -92,7 +96,7 @@ Every field is optional; leave one out and that feature simply switches off.
 | `alarm.spotifyPlaylist` | `"37i9dQZF1DX0UrRvztWcAU"` | Playlist id for the random-song alarm (from the playlist's share link). Without it: a random morning song on YouTube. |
 | `alarm.volume` | `20` | Volume the alarm sets before playing. |
 | `homeAssistant` | `{"url", "room", "alarmWebhook", "homeWebhook"}` | Turns on the Home card and alarm wake-up. See below. |
-| `cameras` | `{"go2rtc": "http://192.168.1.10:1984", "streams": [{"name": "Kids room", "src": "kids_cam"}]}` | Turns on the Cameras card: live view of [go2rtc](https://github.com/AlexxIT/go2rtc) streams (`src` is the stream name in go2rtc.yaml). Two per row: the selected one is live, the others refresh a still every 10 s (TVs often decode one video at a time). OK for full screen, with sound. |
+| `cameras` | `{"go2rtc": "http://192.168.1.10:1984", "streams": [{"name": "Kids room", "src": "kids_cam"}]}` | Turns on the Cameras card. See [Cameras](#cameras-optional). |
 | `sleepKey` | `194` | Key code of the remote button for the sleep timer. |
 | `buttons` | `{"193": "com.netflix.ninja"}` | Remote buttons that open an app. |
 | `dock` | `["com.netflix.ninja", "@home", "@cameras", "@alarm", "@all", "@settings"]` | First-run card order. `@…` are the built-in cards. |
@@ -119,6 +123,50 @@ Wake-on-LAN packet at alarm time. The same package powers the Home card.
 3. Put the same webhook ids and your Home Assistant URL in `calm.json`.
 
 Give the TV a fixed IP in your router: Home Assistant sends the AC status to it.
+
+## Cameras (optional)
+
+The Cameras card shows cameras from [go2rtc](https://github.com/AlexxIT/go2rtc), the streaming
+server many Home Assistant and Frigate setups already use. Without a `cameras` section in
+`calm.json` the card doesn't appear.
+
+1. **Run go2rtc where the TV can reach it** (port 1984). The standalone Docker image
+   `alexxit/go2rtc` or Frigate's go2rtc both work. Home Assistant's built-in go2rtc only
+   listens inside Home Assistant, so it can't be used.
+2. **Add each camera as a stream** in `go2rtc.yaml`, then check it in a browser:
+   `http://<go2rtc>:1984/stream.html?src=<stream>&mode=mse`. If it plays there, it plays on the TV.
+3. **Add them to `calm.json`**, in the order you want them on screen, and push it to the TV:
+
+   ```json
+   "cameras": {
+     "go2rtc": "http://192.168.1.10:1984",
+     "streams": [
+       { "name": "Kids room", "src": "kids_cam" },
+       { "name": "Printer", "src": "printer_cam" }
+     ]
+   }
+   ```
+
+   Existing docks get the card at the end; hold OK on it to move it.
+
+On the TV: the selected camera plays live and the others show a still that refreshes every
+10 s, because many TVs (like the tested Xiaomi) decode only one video at a time. Left/Right
+picks a camera, OK shows it full screen with sound, Back goes back. Streams stop when you
+leave, and the screen closes itself after 15 minutes without a button press.
+
+Tips:
+- **Video:** H.264 plays everywhere. For an H.265/HEVC camera, add a converted copy as a
+  second source of the same stream: `- ffmpeg:kids_cam#video=h264`.
+- **Sound:** AAC and Opus play; G.711 (PCMA/PCMU, common on cheap cameras) doesn't. Add an
+  Opus copy the same way: `- ffmpeg:kids_cam#audio=opus`.
+
+  ```yaml
+  streams:
+    kids_cam:
+      - rtsp://user:pass@192.168.1.20/stream1
+      - ffmpeg:kids_cam#audio=opus
+  ```
+- **Privacy:** go2rtc has no password by default. Keep it on your home network.
 
 ## Debloat (optional)
 
