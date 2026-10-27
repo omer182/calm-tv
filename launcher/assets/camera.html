@@ -101,14 +101,18 @@
     };
     video.src = URL.createObjectURL(ms);
 
-    ws.onopen = function () {
-      ms.addEventListener('sourceopen', function () {
-        var supported = CODECS.filter(function (c) {
-          return MediaSource.isTypeSupported('video/mp4; codecs="' + c + '"');
-        });
-        ws.send(JSON.stringify({type: 'mse', value: supported.join(',')}));
-      }, {once: true});
+    // Ask for the stream once both the socket and the MediaSource are open, whichever is last.
+    var asked = false;
+    var ask = function () {
+      if (asked || ws.readyState !== WebSocket.OPEN || ms.readyState !== 'open') return;
+      asked = true;
+      var supported = CODECS.filter(function (c) {
+        return MediaSource.isTypeSupported('video/mp4; codecs="' + c + '"');
+      });
+      ws.send(JSON.stringify({type: 'mse', value: supported.join(',')}));
     };
+    ms.addEventListener('sourceopen', ask, {once: true});
+    ws.onopen = ask;
     ws.onmessage = function (ev) {
       if (id !== session) return;
       if (typeof ev.data === 'string') {
@@ -170,7 +174,8 @@
 
     // Watchdog: data arriving but no new frames means the decoder gave up quietly. (The clock can
     // keep running on the audio alone, so count video frames, not time.)
-    var lastFrames = -1;
+    // Before the first frame, allow ~24 s: a camera whose audio go2rtc converts takes ~10 s to start.
+    var lastFrames = -1, ticks = 0;
     var watchdog = setInterval(function () {
       if (id !== session) {
         clearInterval(watchdog);
@@ -178,9 +183,11 @@
       }
       var q = video.getVideoPlaybackQuality();
       var shown = q.totalVideoFrames - q.droppedVideoFrames;
-      if (sb && shown === lastFrames) {
+      ticks++;
+      if (shown === lastFrames && (shown > 0 || ticks >= 4)) {
         retry('Reconnecting…', 'no new frames: ' + q.totalVideoFrames + ' decoded, ' + q.droppedVideoFrames
-            + ' dropped, time ' + video.currentTime.toFixed(1) + ' of ' + (sb.buffered.length ? sb.buffered.end(sb.buffered.length - 1).toFixed(1) : '-')
+            + ' dropped, time ' + video.currentTime.toFixed(1) + ' of '
+            + (sb && sb.buffered.length ? sb.buffered.end(sb.buffered.length - 1).toFixed(1) : 'nothing')
             + ', ready ' + video.readyState);
       }
       lastFrames = shown;
