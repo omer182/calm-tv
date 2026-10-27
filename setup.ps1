@@ -74,7 +74,9 @@ if ($WakeOnLan) {
     Step 'Wake-on-LAN (lets Home Assistant wake the TV for alarms)'
     Tv shell settings put global network_wol 1
     Tv shell settings put global network_wow 1
-    $mac = (Tv shell ip link show eth0 | Select-String 'link/ether ([0-9a-f:]+)').Matches.Groups[1].Value
+    # "ip link" is blocked on some TVs (Xiaomi); "ip addr" shows the MAC too.
+    $found = Tv shell ip addr show eth0 2>$null | Select-String 'link/ether ([0-9a-f:]+)'
+    $mac = if ($found) { $found.Matches[0].Groups[1].Value } else { '' }
     if ($mac) { "  Ethernet MAC: $mac (use it in the Home Assistant package)" }
     else { '  No Ethernet MAC found: Wake-on-LAN usually needs the TV on a network cable' }
 }

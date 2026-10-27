@@ -76,7 +76,8 @@ if [[ $WOL == 1 ]]; then
   step "Wake-on-LAN (lets Home Assistant wake the TV for alarms)"
   tv shell settings put global network_wol 1
   tv shell settings put global network_wow 1
-  mac=$(tv shell ip link show eth0 2>/dev/null | tr -d '\r' | awk '/link\/ether/ {print $2}')
+  # "ip link" is blocked on some TVs (Xiaomi); "ip addr" shows the MAC too. Never fatal.
+  mac=$(tv shell ip addr show eth0 2>/dev/null | tr -d '\r' | awk '/link\/ether/ {print $2}' || true)
   if [[ -n $mac ]]; then echo "  Ethernet MAC: $mac (use it in the Home Assistant package)"
   else echo "  No Ethernet MAC found: Wake-on-LAN usually needs the TV on a network cable"; fi
 fi
