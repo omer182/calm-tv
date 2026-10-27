@@ -42,6 +42,11 @@ public class SleepService extends AccessibilityService {
         public void onReceive(Context context, Intent intent) {
             // Turned off by hand: the timer has nothing left to do.
             if (sleepAt != 0) clearTimer(false);
+            // Standby keeps the last app in front, so the TV would wake up inside it. Go home now
+            // so it wakes to the welcome instead. (Home can't do this itself: Android blocks
+            // activity starts from the background, but not from an accessibility service.)
+            startActivity(new Intent(context, HomeActivity.class)
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
         }
     };
 

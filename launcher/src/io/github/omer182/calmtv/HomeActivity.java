@@ -25,8 +25,10 @@ import android.view.animation.DecelerateInterpolator;
 import android.graphics.Typeface;
 import android.graphics.drawable.Drawable;
 import android.graphics.drawable.GradientDrawable;
+import android.graphics.drawable.LayerDrawable;
 import android.os.Bundle;
 import android.os.Handler;
+import android.os.PowerManager;
 import android.provider.Settings;
 import android.text.SpannableString;
 import android.text.TextUtils;
@@ -147,15 +149,17 @@ public class HomeActivity extends Activity {
         HomeState.startServer(this);
         // Re-pick "tomorrow" in case midnight passed since the last fetch.
         applyWeather();
-        if (greetingPending) showGreeting();
         rebuildDock();
         if (allAppsPanel.getVisibility() == View.VISIBLE) rebuildAllApps();
+        handler.removeCallbacks(nextWallpaper);
+        handler.postDelayed(nextWallpaper, WALLPAPER_INTERVAL_MS);
+        // Brought to the front on standby (SleepService): stay black until SCREEN_ON greets.
+        if (!((PowerManager) getSystemService(POWER_SERVICE)).isInteractive()) return;
+        if (greetingPending) showGreeting();
         if (greeting.getVisibility() != View.VISIBLE) {
             showChrome();
             liftCurtain(300);
         }
-        handler.removeCallbacks(nextWallpaper);
-        handler.postDelayed(nextWallpaper, WALLPAPER_INTERVAL_MS);
     }
 
     @Override
@@ -937,9 +941,21 @@ public class HomeActivity extends Activity {
                 outline.setRoundRect(0, 0, view.getWidth(), view.getHeight(), radius);
             }
         });
+        // Focus ring: a white border with a thin dark line inside it, so it also shows on light cards.
+        GradientDrawable outer = new GradientDrawable();
+        outer.setCornerRadius(radius);
+        outer.setStroke(dp(3), Color.WHITE);
+        GradientDrawable inner = new GradientDrawable();
+        inner.setCornerRadius(radius - dp(3));
+        inner.setStroke(dp(1), 0x59000000);
+        final LayerDrawable ring = new LayerDrawable(new Drawable[]{outer, inner});
+        ring.setLayerInset(1, dp(3), dp(3), dp(3), dp(3));
+        ring.setAlpha(0);
+        tile.setForeground(ring);
         tile.setOnFocusChangeListener((v, hasFocus) -> {
             v.animate().scaleX(hasFocus ? 1.14f : 1f).scaleY(hasFocus ? 1.14f : 1f)
                     .translationZ(hasFocus ? dp(18) : 0).setDuration(160).start();
+            ObjectAnimator.ofInt(ring, "alpha", hasFocus ? 255 : 0).setDuration(160).start();
         });
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(dp(176), dp(99));
         lp.rightMargin = dp(26);
