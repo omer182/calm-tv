@@ -54,6 +54,12 @@ final class Config {
     String go2rtcUrl = "";
     /** Cameras in screen order: name shown on screen, go2rtc stream name. */
     final List<String[]> cameras = new ArrayList<>();
+    /** Remote button that shows one camera in a corner over any app; 0 means off. */
+    int popupKey = 0;
+    /** The pop-up's camera: its name or go2rtc stream; empty means the first camera. */
+    String popupCamera = "";
+    /** Try live video in the pop-up. False: a picture every second, which never touches the video decoder. */
+    boolean popupLive = true;
 
     /** Package names for the first-run dock, before the user rearranges it. */
     final List<String> dock = new ArrayList<>();
@@ -129,6 +135,12 @@ final class Config {
                     JSONObject cam = streams.getJSONObject(i);
                     c.cameras.add(new String[]{cam.optString("name", "Camera"), cam.getString("src")});
                 }
+                JSONObject popup = cams.optJSONObject("popup");
+                if (popup != null) {
+                    c.popupKey = popup.optInt("key", 0);
+                    c.popupCamera = popup.optString("camera", "");
+                    c.popupLive = popup.optBoolean("live", true);
+                }
             }
             JSONArray dock = j.optJSONArray("dock");
             if (dock != null) {
@@ -152,6 +164,15 @@ final class Config {
 
     boolean hasCameras() {
         return !go2rtcUrl.isEmpty() && !cameras.isEmpty();
+    }
+
+    /** The pop-up camera as {name, go2rtc stream}, or null when the pop-up is off. */
+    String[] popupStream() {
+        if (popupKey == 0 || !hasCameras()) return null;
+        for (String[] cam : cameras) {
+            if (cam[0].equalsIgnoreCase(popupCamera) || cam[1].equals(popupCamera)) return cam;
+        }
+        return cameras.get(0);
     }
 
     String alarmWebhookUrl() {

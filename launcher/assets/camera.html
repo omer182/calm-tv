@@ -1,8 +1,10 @@
 <!doctype html>
-<!-- One camera for CamerasActivity. Live: go2rtc's MSE stream (fMP4 over a WebSocket) in a <video>,
-     ~0.3 s behind live, reconnecting on its own. Still: go2rtc's frame.jpeg every few seconds.
+<!-- One camera for CamerasActivity and the pop-up (CameraPopup). Live: go2rtc's MSE stream
+     (fMP4 over a WebSocket) in a <video>, ~0.3 s behind live, reconnecting on its own. Still: go2rtc's frame.jpeg every few seconds.
      TVs often decode only one video at a time, so only the selected camera is live.
-     CamerasActivity fills in GO2RTC, SRC and LIVE and loads it with go2rtc as the base URL,
+     In the pop-up, which plays over another app's video, a failed live stream falls back to a
+     still every second instead of retrying: the other app may be holding the only decoder.
+     CameraPlayer fills in GO2RTC, SRC, LIVE and POPUP and loads it with go2rtc as the base URL,
      because go2rtc only accepts WebSockets from its own origin. -->
 <html>
 <head>
@@ -19,8 +21,8 @@
 <video id="video" autoplay muted playsinline></video>
 <div id="status">Connecting…</div>
 <script>
-  var GO2RTC = $GO2RTC, SRC = $SRC, LIVE = $LIVE;
-  var STILL_MS = 10000;
+  var GO2RTC = $GO2RTC, SRC = $SRC, LIVE = $LIVE, POPUP = $POPUP;
+  var STILL_MS = POPUP ? 1000 : 10000;
   // What this WebView can play; go2rtc picks from these.
   var CODECS = ['avc1.640029', 'avc1.64002A', 'avc1.640033', 'hvc1.1.6.L153.B0', 'mp4a.40.2', 'mp4a.40.5', 'flac', 'opus'];
   var video = document.getElementById('video');
@@ -94,6 +96,11 @@
     var retry = function (text, why) {
       if (id !== session) return;
       console.log(SRC + ': ' + text + ' (' + why + ')');
+      if (POPUP) {
+        console.log(SRC + ': live failed, showing stills');
+        goStill();
+        return;
+      }
       stop();
       showStatus(text);
       var again = session;

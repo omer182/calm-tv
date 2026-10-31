@@ -21,6 +21,8 @@ import android.widget.TextView;
 /**
  * Sleep timer on a spare remote button (sleepKey in calm.json), working in any app.
  * Press: +30 min, up to 2 h. Hold 3 s: timer off. In the last minute any button cancels.
+ * It also handles the other buttons that work in any app: "buttons" that open an app, and the
+ * camera pop-up.
  */
 public class SleepService extends AccessibilityService {
     private static final String TAG = "CalmSleep";
@@ -36,12 +38,14 @@ public class SleepService extends AccessibilityService {
     private boolean warning;
     private TextView badge;
     private WindowManager wm;
+    private CameraPopup popup;
 
     private final BroadcastReceiver screenOff = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
             // Turned off by hand: the timer has nothing left to do.
             if (sleepAt != 0) clearTimer(false);
+            popup.hide();
             // Standby keeps the last app in front, so the TV would wake up inside it. Go home now
             // so it wakes to the welcome instead. (Home can't do this itself: Android blocks
             // activity starts from the background, but not from an accessibility service.)
@@ -79,6 +83,7 @@ public class SleepService extends AccessibilityService {
     @Override
     protected void onServiceConnected() {
         wm = (WindowManager) getSystemService(WINDOW_SERVICE);
+        popup = new CameraPopup(this, wm);
         registerReceiver(screenOff, new IntentFilter(Intent.ACTION_SCREEN_OFF));
         registerReceiver(test, new IntentFilter("io.github.omer182.calmtv.SLEEP_TEST"));
         Log.i(TAG, "sleep button ready");
@@ -90,6 +95,7 @@ public class SleepService extends AccessibilityService {
         unregisterReceiver(test);
         handler.removeCallbacksAndMessages(null);
         hideBadge();
+        if (popup != null) popup.hide();
         super.onDestroy();
     }
 
@@ -101,6 +107,16 @@ public class SleepService extends AccessibilityService {
         String app = Config.get(this).buttons.get(code);
         if (app != null) {
             if (event.getAction() == KeyEvent.ACTION_UP) openApp(app);
+            return true;
+        }
+        // "cameras.popup.key" in calm.json: a spare button that shows a camera over whatever is on.
+        if (code == Config.get(this).popupKey && Config.get(this).popupStream() != null) {
+            if (event.getAction() == KeyEvent.ACTION_UP) popup.toggle();
+            return true;
+        }
+        // Back closes the pop-up first, rather than leaving the app underneath.
+        if (code == KeyEvent.KEYCODE_BACK && popup.isShowing()) {
+            if (event.getAction() == KeyEvent.ACTION_UP) popup.hide();
             return true;
         }
         // "sleepKey" in calm.json: a remote button the TV doesn't use (e.g. 194 on Xiaomi remotes).
