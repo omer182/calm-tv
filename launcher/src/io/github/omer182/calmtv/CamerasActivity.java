@@ -149,7 +149,7 @@ public class CamerasActivity extends Activity {
             tile.setClipToOutline(true);
             tile.setBackground(Ui.rounded(this, Color.BLACK, 14));
             tile.setForeground(ring());
-            WebView player = CameraPlayer.create(this, config.go2rtcUrl, cam[1], i == 0, false);
+            WebView player = CameraPlayer.create(this, config.go2rtcUrl, cam[1], i == 0, false, "");
             tile.addView(player, new FrameLayout.LayoutParams(-1, -1));
             cell.addView(tile, new LinearLayout.LayoutParams(-1, 0, 1f));
             TextView label = Ui.text(this, 18, 500);

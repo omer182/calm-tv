@@ -58,8 +58,8 @@ final class Config {
     int popupKey = 0;
     /** The pop-up's camera: its name or go2rtc stream; empty means the first camera. */
     String popupCamera = "";
-    /** Try live video in the pop-up. False: a picture every second, which never touches the video decoder. */
-    boolean popupLive = true;
+    /** go2rtc MJPEG stream for the pop-up (plays next to another app's video); empty: try live. */
+    String popupMjpeg = "";
 
     /** Package names for the first-run dock, before the user rearranges it. */
     final List<String> dock = new ArrayList<>();
@@ -139,7 +139,7 @@ final class Config {
                 if (popup != null) {
                     c.popupKey = popup.optInt("key", 0);
                     c.popupCamera = popup.optString("camera", "");
-                    c.popupLive = popup.optBoolean("live", true);
+                    c.popupMjpeg = popup.optString("mjpeg", "");
                 }
             }
             JSONArray dock = j.optJSONArray("dock");

@@ -22,7 +22,8 @@ final class CameraPlayer {
     private CameraPlayer() {
     }
 
-    static WebView create(Context context, String go2rtc, String src, boolean live, boolean popup) {
+    /** mjpeg: a go2rtc MJPEG stream to show instead of live video (the pop-up), or empty. */
+    static WebView create(Context context, String go2rtc, String src, boolean live, boolean popup, String mjpeg) {
         WebView web = new WebView(context);
         web.setFocusable(false);
         web.setBackgroundColor(Color.BLACK);
@@ -45,7 +46,7 @@ final class CameraPlayer {
         });
         String html = asset(context, "camera.html").replace("$GO2RTC", JSONObject.quote(go2rtc))
                 .replace("$SRC", JSONObject.quote(src)).replace("$LIVE", String.valueOf(live))
-                .replace("$POPUP", String.valueOf(popup));
+                .replace("$POPUP", String.valueOf(popup)).replace("$MJPEG", JSONObject.quote(mjpeg));
         // go2rtc's origin, so its WebSocket accepts the page.
         web.loadDataWithBaseURL(go2rtc + "/", html, "text/html", "utf-8", null);
         return web;

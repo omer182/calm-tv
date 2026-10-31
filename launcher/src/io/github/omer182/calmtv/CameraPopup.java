@@ -15,7 +15,8 @@ import android.widget.TextView;
 /**
  * One camera in the top-right corner over whatever is playing, opened and closed with a spare
  * remote button (cameras.popup in calm.json). Drawn by SleepService, the only part of Calm that
- * may draw over other apps. Muted, and closes itself after a few minutes.
+ * may draw over other apps. Shows the camera's MJPEG stream if there is one, since the app
+ * underneath usually holds the TV's only video decoder. No sound; closes itself after a few minutes.
  */
 final class CameraPopup {
     private static final String TAG = "CalmCameras";
@@ -54,7 +55,7 @@ final class CameraPopup {
         frame = new FrameLayout(context);
         frame.setClipToOutline(true);
         frame.setBackground(Ui.rounded(context, Color.BLACK, 14));
-        player = CameraPlayer.create(context, config.go2rtcUrl, cam[1], config.popupLive, true);
+        player = CameraPlayer.create(context, config.go2rtcUrl, cam[1], true, true, config.popupMjpeg);
         frame.addView(player, new FrameLayout.LayoutParams(-1, -1));
         TextView label = Ui.text(context, 15, 500);
         label.setText(cam[0]);
@@ -71,7 +72,7 @@ final class CameraPopup {
         lp.y = Ui.dp(context, 32);
         wm.addView(frame, lp);
         handler.postDelayed(this::hide, CLOSE_AFTER_MS);
-        Log.i(TAG, "pop-up on: " + cam[1] + (config.popupLive ? " live" : " stills"));
+        Log.i(TAG, "pop-up on: " + (config.popupMjpeg.isEmpty() ? cam[1] + " live" : config.popupMjpeg + " MJPEG"));
     }
 
     void hide() {
