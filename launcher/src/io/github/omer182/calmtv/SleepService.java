@@ -3,6 +3,7 @@ package io.github.omer182.calmtv;
 import android.accessibilityservice.AccessibilityService;
 import android.app.ActivityManager;
 import android.app.admin.DevicePolicyManager;
+import android.content.ActivityNotFoundException;
 import android.content.BroadcastReceiver;
 import android.content.ComponentName;
 import android.content.Context;
@@ -11,15 +12,20 @@ import android.content.IntentFilter;
 import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
 import android.graphics.PixelFormat;
+import android.net.Uri;
 import android.os.Handler;
+import android.os.PowerManager;
 import android.os.SystemClock;
+import android.provider.Settings;
 import android.util.Log;
 import android.view.Gravity;
 import android.view.KeyEvent;
 import android.view.WindowManager;
 import android.view.accessibility.AccessibilityEvent;
+import android.view.accessibility.AccessibilityNodeInfo;
 import android.widget.TextView;
 
+import java.util.ArrayDeque;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -38,6 +44,8 @@ public class SleepService extends AccessibilityService {
     private static final long BADGE_MS = 3_500;
     // Time for the app that was showing to drop behind Home and save its state.
     private static final long CLOSE_APPS_DELAY_MS = 5_000;
+    private static final long FORCE_STOP_TIMEOUT_MS = 8_000;
+    private static final String SETTINGS = "com.android.tv.settings";
 
     private final Handler handler = new Handler();
     private long sleepAt; // uptime millis, 0 = no timer
@@ -82,7 +90,90 @@ public class SleepService extends AccessibilityService {
         pkgs.remove(getPackageName());
         for (String pkg : pkgs) am.killBackgroundProcesses(pkg);
         Log.i(TAG, "screen off: closed " + pkgs.size() + " apps");
+        stopQueue.clear();
+        stopQueue.addAll(Config.get(this).forceStop);
+        forceStopNext();
     };
+
+    // Force stop, the way you would by hand: the app's page in Settings, "Force stop", "OK".
+    // Only while the screen stays off; turning the TV on gives up and goes home.
+    private final ArrayDeque<String> stopQueue = new ArrayDeque<>();
+    private String stopping;
+    private long stopDeadline;
+    private boolean stopConfirming;
+
+    private void forceStopNext() {
+        stopping = stopQueue.poll();
+        PowerManager power = (PowerManager) getSystemService(POWER_SERVICE);
+        if (stopping == null || power.isInteractive()) {
+            if (stopping != null) Log.i(TAG, "screen on, not force-stopping " + stopping);
+            stopping = null;
+            stopQueue.clear();
+            startActivity(new Intent(this, HomeActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+            return;
+        }
+        stopConfirming = false;
+        stopDeadline = SystemClock.uptimeMillis() + FORCE_STOP_TIMEOUT_MS;
+        try {
+            startActivity(new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                    Uri.fromParts("package", stopping, null)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+        } catch (ActivityNotFoundException e) {
+            Log.w(TAG, "no app settings screen", e);
+            stopQueue.clear();
+            forceStopNext();
+            return;
+        }
+        handler.postDelayed(forceStopStep, 700);
+    }
+
+    private final Runnable forceStopStep = new Runnable() {
+        @Override
+        public void run() {
+            if (stopping == null) return;
+            if (((PowerManager) getSystemService(POWER_SERVICE)).isInteractive()) {
+                stopQueue.clear();
+                forceStopNext();
+                return;
+            }
+            if (SystemClock.uptimeMillis() > stopDeadline) {
+                Log.w(TAG, "couldn't force stop " + stopping);
+                forceStopNext();
+                return;
+            }
+            AccessibilityNodeInfo root = getRootInActiveWindow();
+            if (root != null && SETTINGS.contentEquals(root.getPackageName())) {
+                if (!stopConfirming) {
+                    AccessibilityNodeInfo item = clickable(find(root, "android:id/title", "Force stop"));
+                    if (item != null && !item.isEnabled()) {
+                        Log.i(TAG, stopping + " already stopped");
+                        forceStopNext();
+                        return;
+                    }
+                    if (item != null && item.performAction(AccessibilityNodeInfo.ACTION_CLICK)) stopConfirming = true;
+                } else {
+                    AccessibilityNodeInfo ok = clickable(find(root, SETTINGS + ":id/guidedactions_item_title", "OK"));
+                    if (ok != null && ok.performAction(AccessibilityNodeInfo.ACTION_CLICK)) {
+                        Log.i(TAG, "screen off: force-stopped " + stopping);
+                        handler.postDelayed(() -> forceStopNext(), 700);
+                        return;
+                    }
+                }
+            }
+            handler.postDelayed(this, 400);
+        }
+    };
+
+    private static AccessibilityNodeInfo find(AccessibilityNodeInfo root, String viewId, String text) {
+        for (AccessibilityNodeInfo n : root.findAccessibilityNodeInfosByViewId(viewId)) {
+            if (n.getText() != null && text.equalsIgnoreCase(n.getText().toString())) return n;
+        }
+        return null;
+    }
+
+    private static AccessibilityNodeInfo clickable(AccessibilityNodeInfo n) {
+        while (n != null && !n.isClickable()) n = n.getParent();
+        return n;
+    }
 
     // Test from adb without waiting 30 min:
     //   am broadcast -a io.github.omer182.calmtv.SLEEP_TEST --ei seconds 70
