@@ -54,6 +54,12 @@ public class SleepService extends AccessibilityService {
     private TextView badge;
     private WindowManager wm;
     private CameraPopup popup;
+    // Force stop, the way you would by hand: the app's page in Settings, "Force stop", "OK".
+    // Only while the screen stays off; turning the TV on gives up and goes home.
+    private final ArrayDeque<String> stopQueue = new ArrayDeque<>();
+    private String stopping;
+    private long stopDeadline;
+    private boolean stopConfirming;
 
     private final BroadcastReceiver screenOff = new BroadcastReceiver() {
         @Override
@@ -94,13 +100,6 @@ public class SleepService extends AccessibilityService {
         stopQueue.addAll(Config.get(this).forceStop);
         forceStopNext();
     };
-
-    // Force stop, the way you would by hand: the app's page in Settings, "Force stop", "OK".
-    // Only while the screen stays off; turning the TV on gives up and goes home.
-    private final ArrayDeque<String> stopQueue = new ArrayDeque<>();
-    private String stopping;
-    private long stopDeadline;
-    private boolean stopConfirming;
 
     private void forceStopNext() {
         stopping = stopQueue.poll();
