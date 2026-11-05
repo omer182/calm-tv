@@ -14,6 +14,7 @@ import android.content.pm.ResolveInfo;
 import android.graphics.PixelFormat;
 import android.net.Uri;
 import android.os.Handler;
+import android.os.PowerManager;
 import android.os.SystemClock;
 import android.provider.Settings;
 import android.util.Log;
@@ -44,6 +45,8 @@ public class SleepService extends AccessibilityService {
     // Time for the app that was showing to drop behind Home and save its state.
     private static final long CLOSE_APPS_DELAY_MS = 5_000;
     private static final long FORCE_STOP_TIMEOUT_MS = 8_000;
+    // Screen-off delay plus a few apps' worth of force stops.
+    private static final long STANDBY_WORK_MS = 40_000;
     private static final String SETTINGS = "com.android.tv.settings";
 
     private final Handler handler = new Handler();
@@ -59,6 +62,7 @@ public class SleepService extends AccessibilityService {
     private String stopping;
     // From the screen broadcasts: this TV still says "interactive" for a while after standby.
     private boolean screenOn = true;
+    private PowerManager.WakeLock standbyLock;
     private long stopDeadline;
     private boolean stopConfirming;
 
@@ -66,6 +70,8 @@ public class SleepService extends AccessibilityService {
         @Override
         public void onReceive(Context context, Intent intent) {
             screenOn = false;
+            // Standby suspends the CPU within seconds; stay awake to close the apps.
+            if (!standbyLock.isHeld()) standbyLock.acquire(STANDBY_WORK_MS);
             // Turned off by hand: the timer has nothing left to do.
             if (sleepAt != 0) clearTimer(false);
             popup.hide();
@@ -117,6 +123,7 @@ public class SleepService extends AccessibilityService {
             stopping = null;
             stopQueue.clear();
             startActivity(new Intent(this, HomeActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+            if (standbyLock.isHeld()) standbyLock.release();
             return;
         }
         stopConfirming = false;
@@ -138,6 +145,7 @@ public class SleepService extends AccessibilityService {
         public void run() {
             if (stopping == null) return;
             if (screenOn) {
+                Log.i(TAG, "screen on, stopped force-stopping " + stopping);
                 stopQueue.clear();
                 forceStopNext();
                 return;
@@ -148,6 +156,8 @@ public class SleepService extends AccessibilityService {
                 return;
             }
             AccessibilityNodeInfo root = getRootInActiveWindow();
+            Log.d(TAG, "force stop " + stopping + (stopConfirming ? ", confirming" : "") + ": window "
+                    + (root == null ? "none" : root.getPackageName()));
             if (root != null && SETTINGS.contentEquals(root.getPackageName())) {
                 if (!stopConfirming) {
                     AccessibilityNodeInfo item = clickable(find(root, "android:id/title", "Force stop"));
@@ -211,6 +221,8 @@ public class SleepService extends AccessibilityService {
     @Override
     protected void onServiceConnected() {
         wm = (WindowManager) getSystemService(WINDOW_SERVICE);
+        standbyLock = ((PowerManager) getSystemService(POWER_SERVICE))
+                .newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "calm:standby");
         popup = new CameraPopup(this, wm);
         registerReceiver(screenOff, new IntentFilter(Intent.ACTION_SCREEN_OFF));
         registerReceiver(screenOnReceiver, new IntentFilter(Intent.ACTION_SCREEN_ON));
