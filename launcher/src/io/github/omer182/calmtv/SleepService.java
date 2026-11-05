@@ -14,7 +14,6 @@ import android.content.pm.ResolveInfo;
 import android.graphics.PixelFormat;
 import android.net.Uri;
 import android.os.Handler;
-import android.os.PowerManager;
 import android.os.SystemClock;
 import android.provider.Settings;
 import android.util.Log;
@@ -58,12 +57,15 @@ public class SleepService extends AccessibilityService {
     // Only while the screen stays off; turning the TV on gives up and goes home.
     private final ArrayDeque<String> stopQueue = new ArrayDeque<>();
     private String stopping;
+    // From the screen broadcasts: this TV still says "interactive" for a while after standby.
+    private boolean screenOn = true;
     private long stopDeadline;
     private boolean stopConfirming;
 
     private final BroadcastReceiver screenOff = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
+            screenOn = false;
             // Turned off by hand: the timer has nothing left to do.
             if (sleepAt != 0) clearTimer(false);
             popup.hide();
@@ -75,6 +77,13 @@ public class SleepService extends AccessibilityService {
             // Then close the apps left open, once they're behind Home, so none wakes up stuck.
             handler.removeCallbacks(closeApps);
             handler.postDelayed(closeApps, CLOSE_APPS_DELAY_MS);
+        }
+    };
+
+    private final BroadcastReceiver screenOnReceiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            screenOn = true;
         }
     };
 
@@ -103,8 +112,7 @@ public class SleepService extends AccessibilityService {
 
     private void forceStopNext() {
         stopping = stopQueue.poll();
-        PowerManager power = (PowerManager) getSystemService(POWER_SERVICE);
-        if (stopping == null || power.isInteractive()) {
+        if (stopping == null || screenOn) {
             if (stopping != null) Log.i(TAG, "screen on, not force-stopping " + stopping);
             stopping = null;
             stopQueue.clear();
@@ -129,7 +137,7 @@ public class SleepService extends AccessibilityService {
         @Override
         public void run() {
             if (stopping == null) return;
-            if (((PowerManager) getSystemService(POWER_SERVICE)).isInteractive()) {
+            if (screenOn) {
                 stopQueue.clear();
                 forceStopNext();
                 return;
@@ -205,6 +213,7 @@ public class SleepService extends AccessibilityService {
         wm = (WindowManager) getSystemService(WINDOW_SERVICE);
         popup = new CameraPopup(this, wm);
         registerReceiver(screenOff, new IntentFilter(Intent.ACTION_SCREEN_OFF));
+        registerReceiver(screenOnReceiver, new IntentFilter(Intent.ACTION_SCREEN_ON));
         registerReceiver(test, new IntentFilter("io.github.omer182.calmtv.SLEEP_TEST"));
         Log.i(TAG, "sleep button ready");
     }
@@ -212,6 +221,7 @@ public class SleepService extends AccessibilityService {
     @Override
     public void onDestroy() {
         unregisterReceiver(screenOff);
+        unregisterReceiver(screenOnReceiver);
         unregisterReceiver(test);
         handler.removeCallbacksAndMessages(null);
         hideBadge();
