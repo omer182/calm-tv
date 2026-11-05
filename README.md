@@ -99,6 +99,7 @@ Every field is optional; leave one out and that feature simply switches off.
 | `cameras` | `{"go2rtc": "http://192.168.1.10:1984", "streams": [{"name": "Kids room", "src": "kids_cam"}]}` | Turns on the Cameras card. See [Cameras](#cameras-optional). |
 | `sleepKey` | `194` | Key code of the remote button for the sleep timer. |
 | `buttons` | `{"193": "com.netflix.ninja"}` | Remote buttons that open an app. |
+| `standby.forceStop` | `["com.plexapp.android"]` | Apps to force stop when the TV goes to standby, for apps that otherwise stay open (Plex keeps its player running). Calm closes the other apps without this. Needs the TV in English. |
 | `dock` | `["com.netflix.ninja", "@home", "@cameras", "@alarm", "@all", "@settings"]` | First-run card order. `@…` are the built-in cards. |
 
 Change settings any time: edit the file and run setup again, or just
@@ -187,7 +188,7 @@ any debloated packages. A factory reset also undoes everything.
 | Change | Why |
 |---|---|
 | Disables the stock launcher (`com.google.android.tvlauncher` etc.) | Android TV keeps opening its own home screen while it's enabled. |
-| Accessibility service "Calm sleep timer" | The only way an app can see remote buttons while other apps are open. It reads key presses only, never screen content. |
+| Accessibility service "Calm sleep timer" | The only way an app can see remote buttons while other apps are open. It reads key presses, and the TV Settings screen only to press "Force stop" for the apps in `standby.forceStop`. |
 | Device admin with only "lock screen" | So the sleep timer can put the TV into standby. |
 | `WRITE_SECURE_SETTINGS` (granted over adb) | Lets the app switch its button service back on after updates. |
 | Screensaver set to Calm TV | Replaces Google's Backdrop screensaver. |
