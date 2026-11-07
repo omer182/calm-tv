@@ -454,11 +454,7 @@ public class HomeActivity extends Activity {
             LinearLayout row = new LinearLayout(this);
             row.setOrientation(LinearLayout.HORIZONTAL);
             row.setPadding(0, dp(3), 0, dp(3));
-            TextView time = new TextView(this);
-            styleText(time, 18, inter(500));
-            time.setText(e.allDay() ? "All day" : String.format(Locale.ROOT, "%02d:%02d", e.start.getHour(), e.start.getMinute()));
-            time.setAlpha(0.85f);
-            row.addView(time, new LinearLayout.LayoutParams(dp(84), -2));
+            // Names only: the household writes the time into the title when it matters.
             TextView title = new TextView(this);
             styleText(title, 18, inter(400));
             title.setText(e.title);
@@ -475,7 +471,7 @@ public class HomeActivity extends Activity {
             styleText(more, 16, inter(400));
             more.setText("+" + (events.size() - shown) + " more");
             more.setAlpha(0.6f);
-            more.setPadding(dp(84), dp(2), 0, 0);
+            more.setPadding(0, dp(2), 0, 0);
             agendaBox.addView(more);
         }
     }
