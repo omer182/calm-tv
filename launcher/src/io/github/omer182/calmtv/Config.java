@@ -61,6 +61,9 @@ final class Config {
     /** go2rtc MJPEG stream for the pop-up (plays next to another app's video); empty: try live. */
     String popupMjpeg = "";
 
+    /** Published iCalendar link (webcal:// or https://) for the agenda on Home; empty hides it. */
+    String calendarUrl = "";
+
     /** Apps Android won't close at standby (Plex keeps its player running), force-stopped there. */
     final List<String> forceStop = new ArrayList<>();
 
@@ -145,6 +148,8 @@ final class Config {
                     c.popupMjpeg = popup.optString("mjpeg", "");
                 }
             }
+            JSONObject cal = j.optJSONObject("calendar");
+            if (cal != null) c.calendarUrl = cal.optString("url", "").trim();
             JSONObject standby = j.optJSONObject("standby");
             JSONArray stop = standby == null ? null : standby.optJSONArray("forceStop");
             for (int i = 0; stop != null && i < stop.length(); i++) c.forceStop.add(stop.getString(i));
