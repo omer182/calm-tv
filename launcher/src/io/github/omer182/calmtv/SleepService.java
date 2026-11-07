@@ -130,7 +130,9 @@ public class SleepService extends AccessibilityService {
         stopDeadline = SystemClock.uptimeMillis() + FORCE_STOP_TIMEOUT_MS;
         try {
             startActivity(new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
-                    Uri.fromParts("package", stopping, null)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+                    Uri.fromParts("package", stopping, null)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK
+                    // Gone once we go home, so the TV never comes back to it.
+                    | Intent.FLAG_ACTIVITY_NO_HISTORY | Intent.FLAG_ACTIVITY_EXCLUDE_FROM_RECENTS));
         } catch (ActivityNotFoundException e) {
             Log.w(TAG, "no app settings screen", e);
             stopQueue.clear();
@@ -182,6 +184,10 @@ public class SleepService extends AccessibilityService {
 
     private static AccessibilityNodeInfo find(AccessibilityNodeInfo root, String viewId, String text) {
         for (AccessibilityNodeInfo n : root.findAccessibilityNodeInfosByViewId(viewId)) {
+            if (n.getText() != null && text.equalsIgnoreCase(n.getText().toString())) return n;
+        }
+        // Without view ids (older service config cached by the TV): exact text anywhere.
+        for (AccessibilityNodeInfo n : root.findAccessibilityNodeInfosByText(text)) {
             if (n.getText() != null && text.equalsIgnoreCase(n.getText().toString())) return n;
         }
         return null;
