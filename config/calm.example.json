@@ -27,8 +27,6 @@
 
   "buttons": { "193": "com.netflix.ninja" },
 
-  "standby": { "forceStop": ["com.plexapp.android"] },
-
   "dock": [
     "com.netflix.ninja",
     "com.google.android.youtube.tv",
