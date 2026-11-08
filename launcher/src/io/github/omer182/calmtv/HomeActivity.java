@@ -420,7 +420,7 @@ public class HomeActivity extends Activity {
         List<Agenda.Event> later = new ArrayList<>();
         List<Agenda.Event> tomorrow = new ArrayList<>();
         for (Agenda.Event e : agenda.events) {
-            if (e.day.equals(today) && (e.allDay() || e.start.isAfter(now))) later.add(e);
+            if (e.day.equals(today) && stillAhead(e, now)) later.add(e);
             else if (e.day.equals(today.plusDays(1))) tomorrow.add(e);
         }
         // Rows are capped so the agenda always ends above the dock.
@@ -429,6 +429,12 @@ public class HomeActivity extends Activity {
         agendaSection("Tomorrow · " + day, tomorrow, later.isEmpty() ? 5 : 3);
         agendaBox.setVisibility(View.VISIBLE);
         agendaShade.setVisibility(View.VISIBLE);
+    }
+
+    /** Not over yet today: by the time in its title when it has one, else by the event's own start. */
+    private static boolean stillAhead(Agenda.Event e, ZonedDateTime now) {
+        if (e.minutes >= 0) return e.minutes > now.getHour() * 60 + now.getMinute();
+        return e.allDay() || e.start.isAfter(now);
     }
 
     private void agendaSection(String heading, List<Agenda.Event> events, int maxRows) {
@@ -454,13 +460,19 @@ public class HomeActivity extends Activity {
             LinearLayout row = new LinearLayout(this);
             row.setOrientation(LinearLayout.HORIZONTAL);
             row.setPadding(0, dp(3), 0, dp(3));
-            // Names only: the household writes the time into the title when it matters.
+            // Time first in its own column (the one written in the title), then the name.
+            TextView time = new TextView(this);
+            styleText(time, 18, inter(500));
+            time.setText(e.time);
+            time.setFontFeatureSettings("tnum");
+            time.setSingleLine(true);
+            row.addView(time, new LinearLayout.LayoutParams(dp(68), -2));
             TextView title = new TextView(this);
             styleText(title, 18, inter(400));
-            title.setText(e.title);
+            title.setText(e.name);
             title.setSingleLine(true);
             title.setEllipsize(TextUtils.TruncateAt.END);
-            // Hebrew titles stay right-to-left inside, but line up on the left like the rest.
+            // Hebrew names stay right-to-left inside, but line up on the left like the rest.
             title.setTextDirection(View.TEXT_DIRECTION_FIRST_STRONG_LTR);
             title.setGravity(Gravity.LEFT);
             row.addView(title, new LinearLayout.LayoutParams(0, -2, 1f));

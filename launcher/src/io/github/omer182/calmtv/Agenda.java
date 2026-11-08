@@ -17,6 +17,8 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * What's on the household's shared calendar later today and tomorrow, from a published iCalendar
@@ -29,25 +31,57 @@ final class Agenda {
         final LocalDate day;
         final ZonedDateTime start; // null for all-day
         final String title;
+        /** The time written in the title ("17:15", "1730", "17:15-18:00"), as "17:15"; empty if none. */
+        final String time;
+        /** The title without that time. */
+        final String name;
+        /** Minutes after midnight of {@link #time}; -1 if the title has none. */
+        final int minutes;
 
         Event(LocalDate day, ZonedDateTime start, String title) {
             this.day = day;
             this.start = start;
             this.title = title;
+            // The household types the real time into the title; the event's own time is often a placeholder.
+            Matcher m = TITLE_TIME.matcher(title);
+            if (m.find()) {
+                boolean colon = m.group(1) != null;
+                int h = Integer.parseInt(colon ? m.group(1) : m.group(3));
+                int min = Integer.parseInt(colon ? m.group(2) : m.group(4));
+                minutes = h * 60 + min;
+                time = String.format(Locale.ROOT, "%02d:%02d", h, min);
+                String rest = title.substring(0, m.start()) + " " + title.substring(m.end());
+                rest = rest.replaceAll("\\s+", " ").replaceAll("^[\\s\\-–,:]+|[\\s\\-–,:]+$", "");
+                name = rest.isEmpty() ? title.trim() : rest;
+            } else {
+                minutes = -1;
+                time = "";
+                name = title.trim();
+            }
         }
 
         boolean allDay() {
             return start == null;
         }
 
+        /** Titles with a time, by that time; then the rest, all-day first, by the event's own time. */
         @Override
         public int compareTo(Event o) {
             int c = day.compareTo(o.day);
             if (c != 0) return c;
+            if ((minutes < 0) != (o.minutes < 0)) return minutes >= 0 ? -1 : 1;
+            if (minutes >= 0 && minutes != o.minutes) return Integer.compare(minutes, o.minutes);
             if (allDay() != o.allDay()) return allDay() ? -1 : 1;
-            return allDay() ? title.compareTo(o.title) : start.compareTo(o.start);
+            c = allDay() ? 0 : start.compareTo(o.start);
+            return c != 0 ? c : name.compareTo(o.name);
         }
     }
+
+    // 17:15, 9:30, 17:15-18:00 (end dropped), or 1730 without a colon
+    // (quarter hours only there, so a year like 2026 isn't read as 20:26).
+    private static final String HHMM = "(?:[01]?\\d|2[0-3]):[0-5]\\d|(?:[01]\\d|2[0-3])[0-5]\\d";
+    private static final Pattern TITLE_TIME = Pattern.compile("(?<![\\d:])(?:([01]?\\d|2[0-3]):([0-5]\\d)"
+            + "|([01]\\d|2[0-3])(00|15|30|45))(?:\\s*[-–]\\s*(?:" + HHMM + "))?(?![\\d:])");
 
     // A weekly event since 2015 is ~600 steps; daily since 2015 ~4000.
     private static final int MAX_STEPS = 6000;
