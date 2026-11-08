@@ -426,13 +426,15 @@ public class HomeActivity extends Activity {
         // Rows are capped so the agenda always ends above the dock.
         if (!later.isEmpty()) agendaSection("Later today", later, 2);
         String day = today.plusDays(1).getDayOfWeek().getDisplayName(java.time.format.TextStyle.FULL, Locale.ENGLISH);
-        agendaSection("Tomorrow · " + day, tomorrow, later.isEmpty() ? 5 : 3);
+        agendaSection("Tomorrow · " + day, tomorrow, later.isEmpty() ? 7 : 4);
         agendaBox.setVisibility(View.VISIBLE);
         agendaShade.setVisibility(View.VISIBLE);
     }
 
-    /** Not over yet today: by the time in its title when it has one, else by the event's own start. */
+    /** Not over yet: by the time in its title when it has one, else by the event's own start. After midnight
+     *  "today" is the day that just ended, so nothing of it is ahead any more. */
     private static boolean stillAhead(Agenda.Event e, ZonedDateTime now) {
+        if (!e.day.equals(now.toLocalDate())) return false;
         if (e.minutes >= 0) return e.minutes > now.getHour() * 60 + now.getMinute();
         return e.allDay() || e.start.isAfter(now);
     }
