@@ -27,6 +27,8 @@
 
   "buttons": { "193": "com.netflix.ninja" },
 
+  "calendar": { "url": "" },
+
   "dock": [
     "com.netflix.ninja",
     "com.google.android.youtube.tv",

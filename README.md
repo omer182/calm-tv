@@ -99,6 +99,7 @@ Every field is optional; leave one out and that feature simply switches off.
 | `cameras` | `{"go2rtc": "http://192.168.1.10:1984", "streams": [{"name": "Kids room", "src": "kids_cam"}]}` | Turns on the Cameras card. See [Cameras](#cameras-optional). |
 | `sleepKey` | `194` | Key code of the remote button for the sleep timer. |
 | `buttons` | `{"193": "com.netflix.ninja"}` | Remote buttons that open an app. |
+| `calendar.url` | `"webcal://p01-caldav.icloud.com/published/2/…"` | A shared calendar on Home: what's left today and tomorrow. On iPhone: Calendar > Calendars > (i) > Public Calendar > Share Link. Anyone with the link can read the calendar. |
 | `dock` | `["com.netflix.ninja", "@home", "@cameras", "@alarm", "@all", "@settings"]` | First-run card order. `@…` are the built-in cards. |
 
 Change settings any time: edit the file and run setup again, or just

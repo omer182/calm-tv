@@ -52,11 +52,15 @@ import android.widget.Toast;
 
 import java.lang.reflect.Field;
 import java.util.ArrayList;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.ZonedDateTime;
 import java.util.Calendar;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 /** Minimal Apple TV-style home screen: rotating nature wallpapers, a clock and a dock of favourite apps. */
@@ -92,6 +96,9 @@ public class HomeActivity extends Activity {
     private TextView weatherNow;
     private TextView weatherTomorrow;
     private Weather weather;
+    private LinearLayout agendaBox;
+    private View agendaShade;
+    private Agenda agenda;
     private boolean greetingPending = true;
     private boolean resumed;
 
@@ -114,6 +121,7 @@ public class HomeActivity extends Activity {
                 curtain.setVisibility(View.VISIBLE);
             } else {
                 refreshWeather.run();
+                refreshAgenda.run();
                 if (resumed) showGreeting();
             }
         }
@@ -129,6 +137,7 @@ public class HomeActivity extends Activity {
         weather = Weather.load(prefs);
         applyWeather();
         refreshWeather.run();
+        refreshAgenda.run();
         IntentFilter screen = new IntentFilter(Intent.ACTION_SCREEN_ON);
         screen.addAction(Intent.ACTION_SCREEN_OFF);
         registerReceiver(screenState, screen);
@@ -138,6 +147,7 @@ public class HomeActivity extends Activity {
     protected void onDestroy() {
         unregisterReceiver(screenState);
         handler.removeCallbacks(refreshWeather);
+        handler.removeCallbacks(refreshAgenda);
         super.onDestroy();
     }
 
@@ -149,6 +159,7 @@ public class HomeActivity extends Activity {
         HomeState.startServer(this);
         // Re-pick "tomorrow" in case midnight passed since the last fetch.
         applyWeather();
+        applyAgenda();
         rebuildDock();
         if (allAppsPanel.getVisibility() == View.VISIBLE) rebuildAllApps();
         handler.removeCallbacks(nextWallpaper);
@@ -260,6 +271,20 @@ public class HomeActivity extends Activity {
         chromeLayer.addView(clockBox, clp);
         this.clockBox = clockBox;
 
+        // The shared calendar, opposite the clock: what's left today and what's on tomorrow.
+        // Its own soft shade, since it reaches further down than the top one.
+        agendaShade = new View(this);
+        agendaShade.setBackground(new GradientDrawable(GradientDrawable.Orientation.TL_BR,
+                new int[]{0x8C000000, 0x33000000, 0x00000000}));
+        agendaShade.setVisibility(View.GONE);
+        chromeLayer.addView(agendaShade, new FrameLayout.LayoutParams(dp(820), dp(420), Gravity.TOP | Gravity.LEFT));
+        agendaBox = new LinearLayout(this);
+        agendaBox.setOrientation(LinearLayout.VERTICAL);
+        agendaBox.setVisibility(View.GONE);
+        FrameLayout.LayoutParams alp = new FrameLayout.LayoutParams(dp(560), -2, Gravity.TOP | Gravity.LEFT);
+        alp.setMargins(dp(56), dp(40), 0, 0);
+        chromeLayer.addView(agendaBox, alp);
+
         // Darkens the photo when you scroll down into the card grid (Apple TV style).
         gridScrim = new View(this);
         gridScrim.setBackgroundColor(0xE60B0C0E);
@@ -348,6 +373,121 @@ public class HomeActivity extends Activity {
         weatherTomorrow.setVisibility(upcoming != null ? View.VISIBLE : View.GONE);
         weatherNow.setText(now);
         weatherTomorrow.setText(upcoming);
+    }
+
+    // ---------------------------------------------------------------- agenda
+
+    private static final long AGENDA_REFRESH_MS = 15 * 60_000;
+
+    /** The day "today" means: until 5 am we're still in last night. */
+    private static LocalDate agendaToday() {
+        return LocalDateTime.now().minusHours(5).toLocalDate();
+    }
+
+    private final Runnable refreshAgenda = new Runnable() {
+        @Override
+        public void run() {
+            handler.removeCallbacks(this);
+            final String url = Config.get(HomeActivity.this).calendarUrl;
+            if (url.isEmpty()) {
+                agenda = null;
+                applyAgenda();
+                return;
+            }
+            final LocalDate today = agendaToday();
+            new Thread(() -> {
+                final Agenda a = Agenda.fetch(url, today, today.plusDays(2));
+                handler.post(() -> {
+                    if (a != null) {
+                        agenda = a;
+                        applyAgenda();
+                    }
+                    handler.postDelayed(refreshAgenda, a != null ? AGENDA_REFRESH_MS : 60_000);
+                });
+            }).start();
+        }
+    };
+
+    private void applyAgenda() {
+        agendaBox.removeAllViews();
+        if (agenda == null || Config.get(this).calendarUrl.isEmpty()) {
+            agendaBox.setVisibility(View.GONE);
+            agendaShade.setVisibility(View.GONE);
+            return;
+        }
+        LocalDate today = agendaToday();
+        ZonedDateTime now = ZonedDateTime.now();
+        List<Agenda.Event> later = new ArrayList<>();
+        List<Agenda.Event> tomorrow = new ArrayList<>();
+        for (Agenda.Event e : agenda.events) {
+            if (e.day.equals(today) && stillAhead(e, now)) later.add(e);
+            else if (e.day.equals(today.plusDays(1))) tomorrow.add(e);
+        }
+        // Rows are capped so the agenda always ends above the dock.
+        if (!later.isEmpty()) agendaSection("Later today", later, 2);
+        String day = today.plusDays(1).getDayOfWeek().getDisplayName(java.time.format.TextStyle.FULL, Locale.ENGLISH);
+        agendaSection("Tomorrow · " + day, tomorrow, later.isEmpty() ? 7 : 4);
+        agendaBox.setVisibility(View.VISIBLE);
+        agendaShade.setVisibility(View.VISIBLE);
+    }
+
+    /** Not over yet: by the time in its title when it has one, else by the event's own start. After midnight
+     *  "today" is the day that just ended, so nothing of it is ahead any more. */
+    private static boolean stillAhead(Agenda.Event e, ZonedDateTime now) {
+        if (!e.day.equals(now.toLocalDate())) return false;
+        if (e.minutes >= 0) return e.minutes > now.getHour() * 60 + now.getMinute();
+        return e.allDay() || e.start.isAfter(now);
+    }
+
+    private void agendaSection(String heading, List<Agenda.Event> events, int maxRows) {
+        TextView head = new TextView(this);
+        styleText(head, 14, inter(500));
+        head.setText(heading.toUpperCase(Locale.ENGLISH));
+        head.setLetterSpacing(0.12f);
+        head.setAlpha(0.7f);
+        head.setPadding(0, agendaBox.getChildCount() == 0 ? 0 : dp(18), 0, dp(6));
+        agendaBox.addView(head);
+        if (events.isEmpty()) {
+            TextView none = new TextView(this);
+            styleText(none, 18, inter(400));
+            none.setText("Nothing planned");
+            none.setAlpha(0.6f);
+            agendaBox.addView(none);
+            return;
+        }
+        // "+N more" takes the last row rather than adding one.
+        int shown = events.size() > maxRows ? maxRows - 1 : events.size();
+        for (int i = 0; i < shown; i++) {
+            Agenda.Event e = events.get(i);
+            LinearLayout row = new LinearLayout(this);
+            row.setOrientation(LinearLayout.HORIZONTAL);
+            row.setPadding(0, dp(3), 0, dp(3));
+            // Time first in its own column (the one written in the title), then the name.
+            TextView time = new TextView(this);
+            styleText(time, 18, inter(500));
+            time.setText(e.time);
+            time.setFontFeatureSettings("tnum");
+            time.setSingleLine(true);
+            row.addView(time, new LinearLayout.LayoutParams(dp(68), -2));
+            TextView title = new TextView(this);
+            styleText(title, 18, inter(400));
+            title.setText(e.name);
+            title.setSingleLine(true);
+            title.setEllipsize(TextUtils.TruncateAt.END);
+            // Hebrew names stay right-to-left inside, but line up on the left like the rest.
+            title.setTextDirection(View.TEXT_DIRECTION_FIRST_STRONG_LTR);
+            title.setGravity(Gravity.LEFT);
+            row.addView(title, new LinearLayout.LayoutParams(0, -2, 1f));
+            agendaBox.addView(row);
+        }
+        if (shown < events.size()) {
+            TextView more = new TextView(this);
+            styleText(more, 16, inter(400));
+            more.setText("+" + (events.size() - shown) + " more");
+            more.setAlpha(0.6f);
+            more.setPadding(0, dp(2), 0, 0);
+            agendaBox.addView(more);
+        }
     }
 
     private void showGreeting() {
@@ -528,15 +668,19 @@ public class HomeActivity extends Activity {
         }
         if (!animate) {
             dock.setTranslationY(shift);
-            clockBox.setTranslationY(clockShift);
-            clockBox.setAlpha(grid ? 0f : 1f);
+            for (View top : new View[]{clockBox, agendaBox}) {
+                top.setTranslationY(clockShift);
+                top.setAlpha(grid ? 0f : 1f);
+            }
             gridScrim.setAlpha(grid ? 1f : 0f);
             for (ImageView wp : wallpaperViews) wp.setTranslationY(photoShift);
             return;
         }
         DecelerateInterpolator ease = new DecelerateInterpolator(2.2f);
         dock.animate().translationY(shift).setInterpolator(ease).setDuration(PAGE_MS).start();
-        clockBox.animate().translationY(clockShift).alpha(grid ? 0f : 1f).setInterpolator(ease).setDuration(PAGE_MS).start();
+        for (View top : new View[]{clockBox, agendaBox}) {
+            top.animate().translationY(clockShift).alpha(grid ? 0f : 1f).setInterpolator(ease).setDuration(PAGE_MS).start();
+        }
         gridScrim.animate().alpha(grid ? 1f : 0f).setDuration(PAGE_MS).start();
         for (ImageView wp : wallpaperViews) {
             ObjectAnimator.ofFloat(wp, View.TRANSLATION_Y, photoShift).setDuration(PAGE_MS).start();

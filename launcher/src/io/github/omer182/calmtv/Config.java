@@ -61,6 +61,9 @@ final class Config {
     /** go2rtc MJPEG stream for the pop-up (plays next to another app's video); empty: try live. */
     String popupMjpeg = "";
 
+    /** Published iCalendar link (webcal:// or https://) for the agenda on Home; empty hides it. */
+    String calendarUrl = "";
+
     /** Package names for the first-run dock, before the user rearranges it. */
     final List<String> dock = new ArrayList<>();
 
@@ -142,6 +145,8 @@ final class Config {
                     c.popupMjpeg = popup.optString("mjpeg", "");
                 }
             }
+            JSONObject cal = j.optJSONObject("calendar");
+            if (cal != null) c.calendarUrl = cal.optString("url", "").trim();
             JSONArray dock = j.optJSONArray("dock");
             if (dock != null) {
                 c.dock.clear();
