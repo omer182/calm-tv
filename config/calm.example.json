@@ -29,8 +29,6 @@
 
   "calendar": { "url": "" },
 
-  "standby": { "forceStop": ["com.plexapp.android"] },
-
   "dock": [
     "com.netflix.ninja",
     "com.google.android.youtube.tv",

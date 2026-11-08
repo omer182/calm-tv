@@ -64,9 +64,6 @@ final class Config {
     /** Published iCalendar link (webcal:// or https://) for the agenda on Home; empty hides it. */
     String calendarUrl = "";
 
-    /** Apps Android won't close at standby (Plex keeps its player running), force-stopped there. */
-    final List<String> forceStop = new ArrayList<>();
-
     /** Package names for the first-run dock, before the user rearranges it. */
     final List<String> dock = new ArrayList<>();
 
@@ -150,9 +147,6 @@ final class Config {
             }
             JSONObject cal = j.optJSONObject("calendar");
             if (cal != null) c.calendarUrl = cal.optString("url", "").trim();
-            JSONObject standby = j.optJSONObject("standby");
-            JSONArray stop = standby == null ? null : standby.optJSONArray("forceStop");
-            for (int i = 0; stop != null && i < stop.length(); i++) c.forceStop.add(stop.getString(i));
             JSONArray dock = j.optJSONArray("dock");
             if (dock != null) {
                 c.dock.clear();
