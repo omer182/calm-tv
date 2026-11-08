@@ -1,8 +1,11 @@
 <!doctype html>
-<!-- One camera for CamerasActivity. Live: go2rtc's MSE stream (fMP4 over a WebSocket) in a <video>,
-     ~0.3 s behind live, reconnecting on its own. Still: go2rtc's frame.jpeg every few seconds.
+<!-- One camera for CamerasActivity and the pop-up (CameraPopup). Live: go2rtc's MSE stream
+     (fMP4 over a WebSocket) in a <video>, ~0.3 s behind live, reconnecting on its own. Still: go2rtc's frame.jpeg every few seconds.
      TVs often decode only one video at a time, so only the selected camera is live.
-     CamerasActivity fills in GO2RTC, SRC and LIVE and loads it with go2rtc as the base URL,
+     The pop-up plays over another app's video, which holds the TV's only decoder, so it shows
+     MJPEG instead (just pictures, no decoder): go2rtc's stream.mjpeg of the MJPEG stream. Without
+     one it tries live and falls back to a still every second.
+     CameraPlayer fills in GO2RTC, SRC, LIVE, POPUP and MJPEG and loads it with go2rtc as the base URL,
      because go2rtc only accepts WebSockets from its own origin. -->
 <html>
 <head>
@@ -19,8 +22,8 @@
 <video id="video" autoplay muted playsinline></video>
 <div id="status">Connecting…</div>
 <script>
-  var GO2RTC = $GO2RTC, SRC = $SRC, LIVE = $LIVE;
-  var STILL_MS = 10000;
+  var GO2RTC = $GO2RTC, SRC = $SRC, LIVE = $LIVE, POPUP = $POPUP, MJPEG = $MJPEG;
+  var STILL_MS = POPUP ? 1000 : 10000;
   // What this WebView can play; go2rtc picks from these.
   var CODECS = ['avc1.640029', 'avc1.64002A', 'avc1.640033', 'hvc1.1.6.L153.B0', 'mp4a.40.2', 'mp4a.40.5', 'flac', 'opus'];
   var video = document.getElementById('video');
@@ -49,9 +52,25 @@
     refreshStill(session);
   }
 
+  // A go2rtc MJPEG stream in the <img>, reconnecting if it drops (the camera's first connection
+  // after a while often fails).
+  function goMjpeg() {
+    stop();
+    var id = session;
+    if (!still.src) showStatus('Connecting…');
+    still.onload = function () { if (id === session) showStatus(''); };
+    still.onerror = function () {
+      if (id !== session) return;
+      console.log(MJPEG + ': MJPEG stream failed, retrying');
+      stillTimer = setTimeout(function () { if (id === session) goMjpeg(); }, 3000);
+    };
+    still.src = GO2RTC + '/api/stream.mjpeg?src=' + encodeURIComponent(MJPEG) + '&t=' + Date.now();
+  }
+
   function stop() {
     session++;
     clearTimeout(stillTimer);
+    still.onload = still.onerror = null;
     if (video.ws) {
       video.ws.onclose = null;
       video.ws.close();
@@ -94,6 +113,11 @@
     var retry = function (text, why) {
       if (id !== session) return;
       console.log(SRC + ': ' + text + ' (' + why + ')');
+      if (POPUP) {
+        console.log(SRC + ': live failed, showing stills');
+        goStill();
+        return;
+      }
       stop();
       showStatus(text);
       var again = session;
@@ -194,7 +218,8 @@
     }, 6000);
   }
 
-  if (LIVE) goLive();
+  if (MJPEG) goMjpeg();
+  else if (LIVE) goLive();
   else goStill();
 </script>
 </body>

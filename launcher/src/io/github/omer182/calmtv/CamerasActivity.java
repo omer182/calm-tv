@@ -1,7 +1,6 @@
 package io.github.omer182.calmtv;
 
 import android.app.Activity;
-import android.graphics.Bitmap;
 import android.graphics.Color;
 import android.graphics.drawable.GradientDrawable;
 import android.os.Bundle;
@@ -9,21 +8,12 @@ import android.os.Handler;
 import android.view.Gravity;
 import android.view.KeyEvent;
 import android.view.View;
-import android.util.Log;
 import android.view.ViewGroup;
-import android.webkit.ConsoleMessage;
-import android.webkit.WebChromeClient;
-import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.widget.FrameLayout;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
-import org.json.JSONObject;
-
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -34,7 +24,6 @@ import java.util.List;
  * while this screen is open.
  */
 public class CamerasActivity extends Activity {
-    private static final String TAG = "CalmCameras";
     private static final int COLUMNS = 2;
     // Nobody watching: close, so the TV doesn't keep the server transcoding all night.
     private static final long IDLE_CLOSE_MS = 15 * 60_000;
@@ -139,7 +128,6 @@ public class CamerasActivity extends Activity {
         grid.setClipChildren(false);
         root.addView(grid, new LinearLayout.LayoutParams(-1, 0, 1f));
 
-        String template = asset("camera.html");
         LinearLayout row = null;
         for (int i = 0; i < config.cameras.size(); i++) {
             if (i % COLUMNS == 0) {
@@ -161,7 +149,7 @@ public class CamerasActivity extends Activity {
             tile.setClipToOutline(true);
             tile.setBackground(Ui.rounded(this, Color.BLACK, 14));
             tile.setForeground(ring());
-            WebView player = player(template, config.go2rtcUrl, cam[1], i == 0);
+            WebView player = CameraPlayer.create(this, config.go2rtcUrl, cam[1], i == 0, false, "");
             tile.addView(player, new FrameLayout.LayoutParams(-1, -1));
             cell.addView(tile, new LinearLayout.LayoutParams(-1, 0, 1f));
             TextView label = Ui.text(this, 18, 500);
@@ -197,33 +185,6 @@ public class CamerasActivity extends Activity {
         }
     }
 
-    private WebView player(String template, String go2rtc, String src, boolean live) {
-        WebView web = new WebView(this);
-        web.setFocusable(false);
-        web.setBackgroundColor(Color.BLACK);
-        WebSettings settings = web.getSettings();
-        settings.setJavaScriptEnabled(true);
-        // Full screen turns the sound on without a tap, which a TV can't give.
-        settings.setMediaPlaybackRequiresUserGesture(false);
-        web.setWebChromeClient(new WebChromeClient() {
-            // Instead of the grey play button WebView shows before the first frame.
-            @Override
-            public Bitmap getDefaultVideoPoster() {
-                return Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888);
-            }
-
-            @Override
-            public boolean onConsoleMessage(ConsoleMessage message) {
-                Log.i(TAG, message.message());
-                return true;
-            }
-        });
-        String html = template.replace("$GO2RTC", JSONObject.quote(go2rtc)).replace("$SRC", JSONObject.quote(src))
-                .replace("$LIVE", String.valueOf(live));
-        // go2rtc's origin, so its WebSocket accepts the page.
-        web.loadDataWithBaseURL(go2rtc + "/", html, "text/html", "utf-8", null);
-        return web;
-    }
 
     /** The same white focus ring as the home screen's cards. */
     private GradientDrawable ring() {
@@ -281,16 +242,6 @@ public class CamerasActivity extends Activity {
         if (!on) select(selected);
     }
 
-    private String asset(String name) {
-        try (InputStream in = getAssets().open(name)) {
-            ByteArrayOutputStream out = new ByteArrayOutputStream();
-            byte[] buf = new byte[8192];
-            for (int n; (n = in.read(buf)) > 0; ) out.write(buf, 0, n);
-            return out.toString("UTF-8");
-        } catch (IOException e) {
-            throw new IllegalStateException(e);
-        }
-    }
 
     private int dp(int value) {
         return Ui.dp(this, value);
