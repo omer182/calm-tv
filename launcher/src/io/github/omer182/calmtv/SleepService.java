@@ -1,6 +1,7 @@
 package io.github.omer182.calmtv;
 
 import android.accessibilityservice.AccessibilityService;
+import android.app.ActivityManager;
 import android.app.admin.DevicePolicyManager;
 import android.content.BroadcastReceiver;
 import android.content.ComponentName;
@@ -8,6 +9,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.pm.PackageManager;
+import android.content.pm.ResolveInfo;
 import android.graphics.PixelFormat;
 import android.os.Handler;
 import android.os.SystemClock;
@@ -17,6 +19,9 @@ import android.view.KeyEvent;
 import android.view.WindowManager;
 import android.view.accessibility.AccessibilityEvent;
 import android.widget.TextView;
+
+import java.util.HashSet;
+import java.util.Set;
 
 /**
  * Sleep timer on a spare remote button (sleepKey in calm.json), working in any app.
@@ -31,6 +36,8 @@ public class SleepService extends AccessibilityService {
     private static final long HOLD_MS = 3_000;
     private static final long WARN_MS = 60_000;
     private static final long BADGE_MS = 3_500;
+    // Time for the app that was showing to drop behind Home and save its state.
+    private static final long CLOSE_APPS_DELAY_MS = 5_000;
 
     private final Handler handler = new Handler();
     private long sleepAt; // uptime millis, 0 = no timer
@@ -51,7 +58,30 @@ public class SleepService extends AccessibilityService {
             // activity starts from the background, but not from an accessibility service.)
             startActivity(new Intent(context, HomeActivity.class)
                     .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+            // Then close the apps left open, once they're behind Home, so none wakes up stuck.
+            handler.removeCallbacks(closeApps);
+            handler.postDelayed(closeApps, CLOSE_APPS_DELAY_MS);
         }
+    };
+
+    /**
+     * Standby isn't off: apps stay open for days, and Plex sometimes hangs when opened again
+     * after that. Closes every app with a launcher entry that Android counts as in the
+     * background, so the next evening starts fresh. Music still playing (a foreground service)
+     * is left alone.
+     */
+    private final Runnable closeApps = () -> {
+        ActivityManager am = (ActivityManager) getSystemService(ACTIVITY_SERVICE);
+        PackageManager pm = getPackageManager();
+        Set<String> pkgs = new HashSet<>();
+        for (String category : new String[]{Intent.CATEGORY_LEANBACK_LAUNCHER, Intent.CATEGORY_LAUNCHER}) {
+            for (ResolveInfo ri : pm.queryIntentActivities(new Intent(Intent.ACTION_MAIN).addCategory(category), 0)) {
+                pkgs.add(ri.activityInfo.packageName);
+            }
+        }
+        pkgs.remove(getPackageName());
+        for (String pkg : pkgs) am.killBackgroundProcesses(pkg);
+        Log.i(TAG, "screen off: closed " + pkgs.size() + " apps");
     };
 
     // Test from adb without waiting 30 min:
